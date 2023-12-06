@@ -35,7 +35,6 @@ iiwsl = wsl+((wheel_gap+piece_width*.5) *
              np.tan((side_count*2-2)*np.pi/(side_count*2)-np.pi*.5))*2
 print(iiwsl)
 
-
 def rotate_vec(vec, angle):
     angle = np.deg2rad(angle)
     new_vec = np.copy(vec)
@@ -124,7 +123,7 @@ def basic_geometry():
     print(f"Purple:      {(boll*100):.1f} cm")
     print(f"Red:         {(iiwsl*100):.1f} cm")
 
-    return union()(*shapes)
+    return union()(rotate([0, 0, 60])(*shapes))
 
 
 if __name__ == '__main__':
