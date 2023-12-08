@@ -1,10 +1,21 @@
 .DS_Store
 
-*.exe
 *.dll
 *.so
 *.dylib
 
-__pycache__/
 
 z.log.global
+
+#compile temporaries 
+build/
+*.exe
+*.o
+*.a
+*.so
+*.swp
+
+#python temporaries
+__pycache__/
+*.pyc
+.ipynb_checkpoints
