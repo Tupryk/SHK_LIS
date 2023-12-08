@@ -4,3 +4,7 @@
 *.dll
 *.so
 *.dylib
+
+__pycache__/
+
+z.log.global
