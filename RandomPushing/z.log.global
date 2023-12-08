@@ -1,6 +1,60 @@
-** compiled at:     Oct 31 2023 16:52:29
-** execution start: 2023-12-06 12:21:27:775152
+** compiled at:     Nov  3 2023 11:43:35
+** execution start: 2023-12-08 10:51:39:649720
 graph.cpp:initParameters:1500(3) opening config file 'rai.cfg'
 graph.cpp:initParameters:1505(3)  - success
 graph.cpp:initParameters:1513(3) opening base config file '/root/local/rai/../local.cfg'
 graph.cpp:initParameters:1519(3)  - failed
+module.cpp:operator():95(0) python,
+RealSense/resolution: 640,
+RealSense/alignToDepth!,
+physx/motorKp: 10000,
+physx/motorKd: 1000,
+physx/multiBody!
+util.cpp:cd_start:1029(3) entering path '/home/denis/SHK_LIS/RandomPushing'
+util.cpp:cd_file:1037(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/scenarios' from '/home/denis/SHK_LIS/RandomPushing'
+util.cpp:getIs:1066(3) opening input file 'pandaSingle.g'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/scenarios'
+util.cpp:getIs:1066(3) opening input file 'panda_fixGripper.g'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/scenarios'
+util.cpp:cd_file:1037(3) entering path '../panda' from '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/scenarios'
+util.cpp:getIs:1066(3) opening input file 'panda.g'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1066(3) opening input file 'panda_clean.g'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/scenarios'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/scenarios'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1066(3) opening input file 'link0.ply'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1066(3) opening input file 'link1.ply'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1066(3) opening input file 'link2.ply'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1066(3) opening input file 'link3.ply'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1066(3) opening input file 'link4.ply'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1066(3) opening input file 'link5.ply'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1066(3) opening input file 'link6.ply'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1066(3) opening input file 'link7.ply'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1066(3) opening input file 'hand.ply'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1066(3) opening input file 'finger.ply'
+util.cpp:cd_start:1029(3) entering path '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '/home/denis/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1066(3) opening input file 'finger.ply'
+util.cpp:cd_start:1029(3) entering path '/home/denis/SHK_LIS/RandomPushing'
+kin.cpp:getFrame:393(-1) cannot find frame named 'pcl'

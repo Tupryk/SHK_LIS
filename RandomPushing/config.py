@@ -1,4 +1,4 @@
-from robotic import ry
+import robotic as ry
 
 def setup_config(obj_pos=[-.50, .1, .69], on_real=False, debug=False):
     '''creates a config to work with'''

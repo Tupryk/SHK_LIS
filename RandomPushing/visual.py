@@ -396,3 +396,16 @@ def mstorePCR(point_clouds, smoothing=False, verbose=0):
     if verbose:
         o3d.visualization.draw_geometries([result])
     return result
+
+def getPushPoint(bot, ry_config, arena, z_limit=.69, normal_z_max=.5):
+    pts, _ = getFilteredPointCloud(bot, ry_config, arena)
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(pts)
+    pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=.025, max_nn=20))
+
+    push_points = []
+    for i in range(len(pcd.points)):
+        if pcd.points[i][2] > z_limit and np.abs(pcd.normals[i][2]) < normal_z_max:
+            push_points.append([pcd.points[i], pcd.normals[i]])
+
+    return push_points

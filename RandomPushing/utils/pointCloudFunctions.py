@@ -119,3 +119,34 @@ def calculate_valid_antipodal_pairs(pcd, min_patch_points=15, equal_normal_thres
         o3d.visualization.draw_geometries([pcd, line_set], point_show_normal=True)
 
     return antipodal_pairs
+
+def getPatchesForPushing(pcd, min_patch_points=15, equal_normal_thresh=.9, verbose=0):
+
+    # The absolute value of the scalar product of a points normal vector and the z vector needs to be lass than .8
+    # (No pushing downwards or upwards)
+
+    # Prepare point cloud
+    pcd = pcd.voxel_down_sample(voxel_size=.005)
+    pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+    pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=.025, max_nn=20))
+
+    if verbose:
+        print(f"Finding possible push surfaces for point cloud with {len(pcd.points)} points.")
+
+    # Find points in patches
+    points_in_patches = []
+    for i in range(len(pcd.points)):
+        if np.abs(pcd.normals[i][2]) < .5:
+            patch = inPatches(pcd, i, equal_normal_thresh=equal_normal_thresh)
+            if len(patch) >= min_patch_points:
+                points_in_patches.append(i)
+                
+                if verbose > 2:
+                    patch = np.array(patch)
+                    num_points = np.asarray(pcd.points).shape[0]
+                    colors = np.tile([0, 0, 1], (num_points, 1))
+                    colors[patch] = [1, 0, 0]
+                    pcd.colors = o3d.utility.Vector3dVector(colors)
+                    o3d.visualization.draw_geometries([pcd], point_show_normal=True)
+
+    return points_in_patches

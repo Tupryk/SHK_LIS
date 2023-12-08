@@ -1,8 +1,7 @@
 import numpy as np
 import robotic as ry
-from utils.quadratic_solver import line_circle_intersection, line_rect_intersection
-from visual import plotLine
-from random_paths import segment_line
+from utils.geometry import *
+from RobotEnviroment.visual import plotLine
 
 
 class Arena:
@@ -125,7 +124,7 @@ class CircularArena(Arena):
 
         # Display the path in the rai simulation
         if ry_config:
-            plotLine(ry_config, np.array([point0[0], point0[1], .651]), np.array([point1[0], point1[1], .651]))
+            plotLine(ry_config, np.array([point0[0], point0[1], .651]), np.array([point1[0], point1[1], .651]), name="path")
             
             points = segment_line(start_point, end_point, 6)
             for i, p in enumerate(points):
@@ -296,7 +295,7 @@ class RectangularArena(Arena):
 
         # Display the path in the rai simulation
         if ry_config:
-            #plotLine(ry_config, np.array([point0[0], point0[1], .651]), np.array([point1[0], point1[1], .651]))
+            plotLine(ry_config, np.array([point0[0], point0[1], .651]), np.array([point1[0], point1[1], .651]), name="path")
 
 
             points = segment_line(start_point, end_point, 6)
