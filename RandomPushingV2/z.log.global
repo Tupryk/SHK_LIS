@@ -1,5 +1,5 @@
 ** compiled at:     Oct 31 2023 16:52:29
-** execution start: 2023-12-15 10:49:44:376467
+** execution start: 2023-12-20 12:06:14:941276
 graph.cpp:initParameters:1500(3) opening config file 'rai.cfg'
 graph.cpp:initParameters:1507(3)  - failed
 graph.cpp:initParameters:1513(3) opening base config file '/root/local/rai/../local.cfg'
@@ -52,6 +52,10 @@ util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '
 util.cpp:getIs:1066(3) opening input file 'finger.ply'
 util.cpp:cd_start:1029(3) entering path '/home/eckart/SHK_LIS/RandomPushingV2'
 kin.cpp:getFrame:393(-1) cannot find frame named 'pcl'
+kin.cpp:getFrame:393(-1) cannot find frame named 'way0'
+kin.cpp:getFrame:393(-1) cannot find frame named 'way1'
+kin.cpp:getFrame:393(-1) cannot find frame named 'way2'
+kin.cpp:getFrame:393(-1) cannot find frame named 'way3'
 util.cpp:cd_start:1029(3) entering path '/home/eckart/SHK_LIS/RandomPushingV2'
 util.cpp:cd_file:1037(3) entering path '/home/eckart/.local/lib/python3.8/site-packages/robotic/rai-robotModels/scenarios' from '/home/eckart/SHK_LIS/RandomPushingV2'
 util.cpp:getIs:1066(3) opening input file 'pandaSingle.g'
@@ -99,11 +103,3 @@ util.cpp:cd_start:1029(3) entering path '/home/eckart/.local/lib/python3.8/site-
 util.cpp:cd_file:1037(3) entering path 'franka_description/meshes/visual' from '/home/eckart/.local/lib/python3.8/site-packages/robotic/rai-robotModels/panda'
 util.cpp:getIs:1066(3) opening input file 'finger.ply'
 util.cpp:cd_start:1029(3) entering path '/home/eckart/SHK_LIS/RandomPushingV2'
-bot.cpp:~BotOp:118(0) shutting down BotOp...
-simulation.cpp:~BotThreadedSim:56(0) shutting down SimThread
-simulation.cpp:~Simulation:148(0) shutting down Simulation
-kin.cpp:getFrame:393(-1) cannot find frame named 'pcl'
-kin.cpp:getFrame:393(-1) cannot find frame named 'way0'
-kin.cpp:getFrame:393(-1) cannot find frame named 'way1'
-kin.cpp:getFrame:393(-1) cannot find frame named 'way2'
-kin.cpp:getFrame:393(-1) cannot find frame named 'way3'
