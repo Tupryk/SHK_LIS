@@ -8,9 +8,10 @@ def setup_config(obj_pos=[-.50, .1, .69], on_real=False):
     if not on_real:
         C.addFrame('obj') \
             .setPosition(obj_pos) \
-            .setShape(ry.ST.cylinder, size=[.08, .06]) \
-            .setColor([1, .5, 0]) .setMass(.1) .setContact(True)
+            .setShape(ry.ST.ssBox, [.1, .1, .1, 0]) \
+            .setColor([1, .5, 0]) .setMass(.1)
     
+    # .setShape(ry.ST.cylinder, size=[.08, .06]) \
     C.addFrame('predicted_obj') \
         .setShape(ry.ST.marker, size=[.1]) \
         .setPosition(obj_pos) \

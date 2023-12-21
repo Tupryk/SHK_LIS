@@ -39,3 +39,15 @@ def mstorePCR(point_clouds, smoothing=False, verbose=0):
     if verbose:
         o3d.visualization.draw_geometries([result])
     return result
+
+def joinOffsetPCS(pcs, verbose=0):
+    new_pcs = []
+    for pc in pcs:
+        openpc = o3d.geometry.PointCloud()
+        openpc.points = o3d.utility.Vector3dVector(pc)
+        new_pcs.append(openpc)
+    
+    initial_pc = new_pcs[0]
+    initial_pc += new_pcs[1]
+    o3d.visualization.draw_geometries([initial_pc])
+    return np.asarray(mstorePCR(new_pcs, verbose=verbose).points)

@@ -33,12 +33,12 @@ def pushPCpoint(point, normal, robot_pos, start_dist=.15, end_dist_range=[.1, .1
 
 def computeKomo(C, bot, ways, verbose=0):
 
-    q_home = bot.get_qHome()
+    bot.sync(C, .1)
 
     komo = ry.KOMO()
     komo.setConfig(C, True)
 
-    komo.setTiming(len(ways)+1, 5, 1., 2)
+    komo.setTiming(len(ways), 5, 1., 2)
 
     move_dir = ways[-1]-ways[1]
     move_dir /= np.linalg.norm(move_dir)
@@ -46,14 +46,14 @@ def computeKomo(C, bot, ways, verbose=0):
     komo.addControlObjective([], 0, 1e-2)
     komo.addControlObjective([], 2, 1e1)
 
-    # komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
+    komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
     komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
 
-    komo.addObjective([1.], ry.FS.qItself, [], ry.OT.eq, [.1], q_home)
     komo.addObjective([], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -move_dir)
     komo.addObjective([], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
+
     for i, way in enumerate(ways):
-        komo.addObjective([i+2.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], way)
+        komo.addObjective([i+1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], way)
 
     ret = ry.NLP_Solver().setProblem(komo.nlp()).setOptions(stopTolerance=1e-2, verbose=verbose).solve()
     if verbose: print(ret)

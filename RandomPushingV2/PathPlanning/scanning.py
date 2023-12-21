@@ -1,12 +1,44 @@
+import json
 import numpy as np
 import robotic as ry
 
 
-def lookAtObj(objpos, bot, C):
+def lookAtObjRandAngle(obj_pos, bot, C, radialDist=.2, gripperHeight=.2):
+
+    C.getFrame("predicted_obj").setPosition(obj_pos)
+    q_now = C.getJointState()
+    q_home = bot.get_qHome()
+
+    angle = np.random.random()*np.pi*2
+    new_view = np.array([
+        radialDist * np.sin(angle),
+        radialDist * np.cos(angle),
+        gripperHeight
+    ])
+
+    komo = ry.KOMO()
+    komo.setConfig(C, True)
+    komo.setTiming(1., 1, 1., 0)
+
+    komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
+    komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
+
+    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], new_view+obj_pos)
+    komo.addObjective([1.], ry.FS.vectorZ, ["cameraWrist"], ry.OT.eq, [1.], -new_view/np.linalg.norm(new_view))
+    komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_home)
+    komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_now)
+
+    ry.NLP_Solver().setProblem(komo.nlp()).setOptions(stopTolerance=1e-2, verbose=0).solve()
+
+    bot.move(komo.getPath(), [3.])
+    while bot.getTimeToEnd() > 0:
+        bot.sync(C, .1)
+
+
+def lookAtObj(objpos, bot, C, dist2obj=.3):
 
     C.getFrame("predicted_obj").setPosition(objpos)
     q_now = C.getJointState()
-
     q_home = bot.get_qHome()
 
     komo = ry.KOMO()
@@ -15,8 +47,8 @@ def lookAtObj(objpos, bot, C):
     komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
     komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
 
-    komo.addObjective([1.], ry.FS.positionRel, ["predicted_obj", "cameraWrist"], ry.OT.eq, [1.], [.0, .0, .5])
-    komo.addObjective([1.], ry.FS.position, ["l_gripper"], ry.OT.ineq, np.array([[.0, .0, -100.]]), [0, 0, 1])
+    komo.addObjective([1.], ry.FS.positionRel, ["predicted_obj", "cameraWrist"], ry.OT.eq, [1.], [.0, .0, dist2obj])
+    komo.addObjective([1.], ry.FS.position, ["l_gripper"], ry.OT.ineq, np.array([[.0, .0, -100.]]), [0, 0, dist2obj*2.])
     komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_home)
     komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_now)
 
@@ -112,3 +144,44 @@ def getScannedObject(bot, ry_config, arena, visuals=True):
                 .setPosition(midpoint)
     
     return midpoint, points
+
+
+def fullObjectScan(bot, ry_config, obj_pos, arena, gripper_height=.2, gripper_distance=.2, save_as=None, view_count=16):
+
+    all_points = []
+    angle_step = 2*np.pi/view_count
+    for i in range(view_count):
+        angle = angle_step * i
+        new_view = np.array([
+            gripper_distance * np.sin(angle),
+            gripper_distance * np.cos(angle),
+            gripper_height
+        ])
+
+        ry_config.getFrame(f'view_point_{i}').setPosition(new_view+obj_pos)
+        bot.sync(ry_config)
+
+        komo = ry.KOMO()
+        komo.setConfig(ry_config, True)
+        komo.setTiming(1., 1, 1., 0)
+
+        komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
+        komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
+
+        komo.addObjective([1.], ry.FS.positionDiff, ['l_gripper', f'view_point_{i}'], ry.OT.eq, [1e1])
+        komo.addObjective([1.], ry.FS.vectorZ, ["cameraWrist"], ry.OT.eq, [1.], -new_view/np.linalg.norm(new_view))
+
+        ret = ry.NLP_Solver().setProblem(komo.nlp()).setOptions(stopTolerance=1e-2, verbose=0).solve()
+        print(ret)
+        bot.move(komo.getPath(), [3.])
+        while bot.getTimeToEnd() > 0:
+            bot.sync(ry_config, .1)
+
+        points, _ = getFilteredPointCloud(bot, ry_config, arena)
+        all_points.append([list(p) for p in points])
+        getScannedObject(bot, ry_config, arena)
+
+    if save_as:
+        json.dump(all_points, open(save_as, "w"))
+    
+    return all_points
