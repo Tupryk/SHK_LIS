@@ -118,6 +118,10 @@ def maneuverTo(C, bot, block, position="orthogonal"):
     komo.addObjective([2], ry.FS.positionDiff, ['l_gripper', f'{block}way2'], ry.OT.eq, [1e1])
     if(position=="orthogonal"):
         komo.addObjective([2], ry.FS.scalarProductYZ, ['l_gripper', f'{block}way2'], ry.OT.eq, [1e1], [1])
+    elif(position=="parallel"):
+        komo.addObjective([2], ry.FS.scalarProductXX, ['l_gripper', f'{block}way2'], ry.OT.eq, [1e1], [0])
+        komo.addObjective([2], ry.FS.scalarProductYY, ['l_gripper', f'{block}way2'], ry.OT.eq, [1e1], [0])
+
     komo.addObjective([3], ry.FS.positionDiff, ['l_gripper', f'{block}way3'], ry.OT.eq, [1e1])
     komo.addObjective([4], ry.FS.positionRel, [f'{block}way3', "cameraWrist"], ry.OT.eq, [1.], [.0, .0, .2])
 
@@ -132,7 +136,7 @@ def maneuverTo(C, bot, block, position="orthogonal"):
     print(q)
     C.setJointState(q[0])
 
-    #komo.view(True)
+    komo.view(True)
     bot.move(q[:-1], [1,3,4.5])  # save last pathstep for after loslassing
 
     while bot.getTimeToEnd()>0:
@@ -167,4 +171,4 @@ bot.home(C)
 
 grabBlock(C, bot, "block3")
 maneuverTo(C, bot, "block3", "parallel")
-
+bot.home(C)
