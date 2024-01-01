@@ -1,4 +1,5 @@
 import robotic as ry
+from basicAbstractions import moveObjectTo
 
 C = ry.Config()
 C.addFile(ry.raiPath('scenarios/pandaSingle.g'))
@@ -15,6 +16,7 @@ bot.home(C)
 
 C.view()
 
-moveObjectTo(bot, C, "block", [.0,.12, .67])
+moveObjectTo(C, bot, "block", [-.3,.15,.67])
+bot.home(C)
 
 C.view(True)
