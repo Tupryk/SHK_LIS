@@ -1,8 +1,9 @@
 import numpy as np
 import robotic as ry
+from utils import *
 
 
-def grabObject(C, frameName):
+def grabObject(C: ry.Config, frameName: str):
 
     qHome = C.getJointState()
 
@@ -20,47 +21,65 @@ def grabObject(C, frameName):
     return komo.getPath(), ret.feasible
 
 
-def moveGrabbedObject(C, block, finalPos, finalRot, dropHeight=.01):
-    initialPos = C.getFrame(block).getPosition()
+def moveGrabbedObject(C: ry.Config,
+                      frameName: str,
+                      finalPos: np.ndarray,
+                      finalRot: np.ndarray,
+                      dropHeight: float=.01,
+                      minMoveHeight: float=.1,
+                      verbose: int=0):
+    
+    # Path direction (Treated as normalized 2d vector)
+    initialPos = C.getFrame(frameName).getPosition()
     dir = finalPos-initialPos
+    dir[2] = 0
     dist = np.linalg.norm(dir)
     dir /= dist
-    height = dist/3
+    seg_size = dist/3.
+
+    # Waypoint positions
+    height = dist/3.
+    if height < minMoveHeight:
+        height = minMoveHeight
     finalPos[2] += dropHeight
 
-    point0 = initialPos+dir*height + np.array([0., 0., height])
-    C.addFrame('way0').setShape(ry.ST.marker, [.1]).setPosition(point0)
+    seg = dir*seg_size
+    point0 = initialPos + seg + np.array([0., 0., height])
+    point1 = point0 + seg
 
-    point1 = point0+dir*height
-    C.addFrame('way1').setShape(ry.ST.marker, [.1]).setPosition(point1)
-
-    C.addFrame('way2').setShape(ry.ST.marker, [.1]).setPosition(finalPos)
+    if verbose:
+        visualizeWaypoints(C, [initialPos, point0, point1, finalPos])
 
     komo = ry.KOMO(C, 3, 1, 2, True)
     komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
-    #komo.addControlObjective([], 0, 1e-1)
-    #komo.addControlObjective([], 1, 1e0)
+    komo.addControlObjective([], 0, 1e-1)
+    komo.addControlObjective([], 1, 1e0)
 
     komo.addObjective([1], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], point0)
     komo.addObjective([2], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], point1)
     komo.addObjective([3], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], finalPos)
 
-    komo.addObjective([3], ry.FS.vectorX, ['l_gripper'], ry.OT.eq, [1e1], [1., 0., 0.])
-    komo.addObjective([3], ry.FS.vectorY, ['l_gripper'], ry.OT.eq, [1e1], [0., 1., 0.])
+    if len(finalRot):
+        komo.addObjective([3], ry.FS.quaternion, ['l_gripper'], ry.OT.eq, [1e1], get_quaternion_from_euler(*finalRot))
 
     ret = ry.NLP_Solver(komo.nlp(), verbose=0).solve()
     return komo.getPath(), ret.feasible
 
 
-def moveObjectTo(C, bot, frameName, position, rotation=None):
+def moveObjectTo(C: ry.Config,
+                 bot: ry.BotOp,
+                 frameName: str,
+                 position: np.ndarray,
+                 rotation: np.ndarray = np.array([])):
 
-    pathSolution, feasible = grabObject(C, frameName)
+    pickUpPathathSolution, feasible0 = grabObject(C, frameName)
+    movementPathSolution, feasible1 = moveGrabbedObject(C, frameName, position, rotation, verbose=1)
 
-    if not feasible:
+    if not feasible0 or not feasible1:
         print("Object movement infeasible.")
         return
 
-    bot.move(pathSolution, [5])
+    bot.move(pickUpPathathSolution, [5])
     while bot.getTimeToEnd()>0:
         bot.sync(C, .1)
 
@@ -68,13 +87,7 @@ def moveObjectTo(C, bot, frameName, position, rotation=None):
     while not bot.gripperDone(ry._left):
         bot.sync(C, .1)
 
-    pathSolution, feasible = moveGrabbedObject(C, frameName, position, rotation)
-
-    if not feasible:
-        print("Object movement infeasible.")
-        return
-
-    bot.move(pathSolution, [5]) # save last pathstep for after loslassing
+    bot.move(movementPathSolution, [5])
     while bot.getTimeToEnd()>0:
         bot.sync(C, .1)
 
@@ -82,6 +95,11 @@ def moveObjectTo(C, bot, frameName, position, rotation=None):
     while not bot.gripperDone(ry._left):
         bot.sync(C, .1)
 
-    bot.move(np.asarray([C.getJointState(), pathSolution[-1]]), [1]) # save last pathstep for after loslassing
-    while bot.getTimeToEnd()>0:
-        bot.sync(C, .1)
+
+def moveObjectBy(C: ry.Config,
+                 bot: ry.BotOp,
+                 frameName: str,
+                 position: np.ndarray,
+                 rotation: np.ndarray = np.array([])):
+    position = C.getFrame(frameName).getPosition()+position
+    moveObjectTo(C, bot, frameName, position, rotation)
