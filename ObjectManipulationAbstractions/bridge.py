@@ -75,7 +75,7 @@ def grabBlock(C, bot, block):
     q = komo.getPath()
     del komo #also closes komo view
 
-    #C.setJointState(q[0])
+    C.setJointState(q[0])
 
     komo = ry.KOMO(C, 1,1,0, True)
     komo.addObjective([], ry.FS.jointState, [], ry.OT.sos, [1e-1], qHome)
@@ -96,7 +96,7 @@ def grabBlock(C, bot, block):
         print('---  !!!!!!!!!!! NOT FEASIBLE !!!!!!!!!!! ---')
 
     q = komo.getPath()
-    #C.setJointState(q[0])
+    C.setJointState(q[0])
 
     bot.move(q, [5])
 
@@ -142,7 +142,7 @@ def maneuverTo(C, bot, block, position="orthogonal"):
         print('---  !!!!!!!!!!! NOT FEASIBLE !!!!!!!!!!! ---')
     q = komo.getPath()
     print(q)
-    #C.setJointState(q[0])
+    C.setJointState(q[0])
 
     komo.view(True)
     bot.move(q[:-1], [1,3,4.5])  # save last pathstep for after loslassing
