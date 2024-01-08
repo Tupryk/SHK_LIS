@@ -52,6 +52,8 @@ def doPushThroughWaypoints(C, bot, ways, verbose=0):
     komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], ways[0])
     komo.addObjective([1.], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -move_dir)
     komo.addObjective([1.], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
+    komo.addObjective([1.], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
+
 
     ret = ry.NLP_Solver().setProblem(komo.nlp()).setOptions(stopTolerance=1e-2, verbose=verbose).solve()
     if verbose: print(ret)
@@ -80,6 +82,7 @@ def doPushThroughWaypoints(C, bot, ways, verbose=0):
 
     komo.addObjective([], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -move_dir)
     komo.addObjective([], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
+    komo.addObjective([], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
 
     for i, way in enumerate(ways[1:]):
         komo.addObjective([i+1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], way)
@@ -111,8 +114,9 @@ def doPushThroughWaypoints(C, bot, ways, verbose=0):
     komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
 
     komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], ways[-2])
-    komo.addObjective([1.], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -move_dir)
-    komo.addObjective([1.], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
+    komo.addObjective([], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -move_dir)
+    komo.addObjective([], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
+    komo.addObjective([], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
 
     ret = ry.NLP_Solver().setProblem(komo.nlp()).setOptions(stopTolerance=1e-2, verbose=verbose).solve()
     if verbose: print(ret)
