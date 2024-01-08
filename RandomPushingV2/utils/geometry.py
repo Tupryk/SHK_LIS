@@ -72,3 +72,9 @@ def line_rect_intersection(line_pos, line_vec, pos, rect_width, rect_height):
 
 def segment_line(point1, point2, point_between):
     return [point1 + (point2 - point1) * 0.5 * (1-np.cos(np.pi * i/(point_between-1))) for i in range(point_between)]
+
+def pathLength(waypoints: [np.ndarray]) -> float:
+    sum_ = 0
+    for i, _ in enumerate(waypoints[1:]):
+        sum_ += np.linalg.norm(waypoints[i]-waypoints[i-1])
+    return sum_

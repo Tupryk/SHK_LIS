@@ -49,5 +49,6 @@ def joinOffsetPCS(pcs, verbose=0):
     
     initial_pc = new_pcs[0]
     initial_pc += new_pcs[1]
-    o3d.visualization.draw_geometries([initial_pc])
+    if verbose:
+        o3d.visualization.draw_geometries([initial_pc])
     return np.asarray(mstorePCR(new_pcs, verbose=verbose).points)

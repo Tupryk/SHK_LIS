@@ -1,43 +1,71 @@
 import json
 import numpy as np
 import robotic as ry
+from typing import Tuple, List
+from RobotEnviroment.arenas import Arena
 
 
-def lookAtObjRandAngle(obj_pos, bot, C, radialDist=.2, gripperHeight=.2):
+# TODO: Make code less repetitive and make the time for robot to move relative to the distance it has to travel.
 
-    C.getFrame("predicted_obj").setPosition(obj_pos)
+def lookAtObjFromAngle(obj_pos: np.ndarray,
+                  bot: ry.BotOp,
+                  C: ry.Config,
+                  angle: float,
+                  radialDist: float=.2,
+                  gripperHeight: float=.2,
+                  speed: float=.2):
+
+    C.getFrame("predicted_obj").setPosition(obj_pos) # This line should probaly not be in this function.
     q_now = C.getJointState()
-    q_home = bot.get_qHome()
 
-    angle = np.random.random()*np.pi*2
     new_view = np.array([
         radialDist * np.sin(angle),
         radialDist * np.cos(angle),
         gripperHeight
     ])
 
+    final_gripper_pos = new_view + obj_pos
+
     komo = ry.KOMO()
     komo.setConfig(C, True)
-    komo.setTiming(1., 1, 1., 0)
+    komo.setTiming(1., 3, 1., 0)
 
-    komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
     komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
-
-    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], new_view+obj_pos)
-    komo.addObjective([1.], ry.FS.vectorZ, ["cameraWrist"], ry.OT.eq, [1.], -new_view/np.linalg.norm(new_view))
-    komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_home)
+    komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
     komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_now)
 
-    ry.NLP_Solver().setProblem(komo.nlp()).setOptions(stopTolerance=1e-2, verbose=0).solve()
+    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], final_gripper_pos)
+    komo.addObjective([1.], ry.FS.vectorZ, ["cameraWrist"], ry.OT.eq, [1.], -new_view/np.linalg.norm(new_view))
+    komo.addObjective([1.], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
 
-    bot.move(komo.getPath(), [3.])
+    ret = ry.NLP_Solver().setProblem(komo.nlp()).setOptions(stopTolerance=1e-2, verbose=0).solve()
+    if not ret.feasible:
+        print("Error while trying to look at object.")
+        return
+    
+    dist_to_travel = np.linalg.norm(final_gripper_pos-C.getFrame("l_gripper").getPosition())
+
+    bot.move(komo.getPath(), [dist_to_travel/speed])
     while bot.getTimeToEnd() > 0:
         bot.sync(C, .1)
 
 
-def lookAtObj(objpos, bot, C, dist2obj=.3):
+def lookAtObjRandAngle(obj_pos: np.ndarray,
+                  bot: ry.BotOp,
+                  C: ry.Config,
+                  radialDist: float=.2,
+                  gripperHeight: float=.2):
+    
+    angle = np.random.random()*np.pi*2
+    lookAtObjFromAngle(obj_pos, bot, C, angle, radialDist, gripperHeight)
 
-    C.getFrame("predicted_obj").setPosition(objpos)
+
+def lookAtObj(obj_pos: np.ndarray,
+              bot: ry.BotOp,
+              C: ry.Config,
+              dist2obj: float=.3):
+
+    C.getFrame("predicted_obj").setPosition(obj_pos)
     q_now = C.getJointState()
     q_home = bot.get_qHome()
 
@@ -62,8 +90,11 @@ def lookAtObj(objpos, bot, C, dist2obj=.3):
         bot.sync(C, .1)
 
 
-def getFilteredPointCloud(bot, ry_config, arena, z_cutoff=.68):
-    bot.sync(ry_config, .0)
+def getFilteredPointCloud(bot: ry.BotOp,
+                          C: ry.Config,
+                          arena: Arena,
+                          z_cutoff: float=.68) -> Tuple[List[float], List[float]]:
+    bot.sync(C, .0)
     rgb, depth, points = bot.getImageDepthPcl('cameraWrist', False)
 
     new_rgb = []
@@ -86,7 +117,7 @@ def getFilteredPointCloud(bot, ry_config, arena, z_cutoff=.68):
             new_p.append(p)
     points = np.array(new_p)
     
-    cameraFrame = ry_config.getFrame("cameraWrist")
+    cameraFrame = C.getFrame("cameraWrist")
 
     R, t = cameraFrame.getRotationMatrix(), cameraFrame.getPosition()
 
@@ -99,12 +130,16 @@ def getFilteredPointCloud(bot, ry_config, arena, z_cutoff=.68):
         if p[2] > (z_cutoff) and arena.point_in_arena(np.array(p)):
             objectpoints.append(p)
             colors.append(rgb[i])
+
     return objectpoints, colors
 
 
-def getScannedObject(bot, ry_config, arena, visuals=True):
+def getScannedObject(bot: ry.BotOp,
+                     C: ry.Config,
+                     arena: Arena,
+                     visuals: bool=True) -> Tuple[np.ndarray, np.ndarray]:
 
-    points, _ = getFilteredPointCloud(bot, ry_config, arena)
+    points, _ = getFilteredPointCloud(bot, C, arena)
     points = np.array(points)
 
     if not len(points):
@@ -126,27 +161,34 @@ def getScannedObject(bot, ry_config, arena, visuals=True):
     midpoint = (max_coor+min_coor)/2
     
     if visuals:
-        pclFrame = ry_config.getFrame("pcl")
+        pclFrame = C.getFrame("pcl")
         if not pclFrame:
-            pclFrame = ry_config.addFrame('pcl')
+            pclFrame = C.addFrame('pcl')
             pclFrame.setPointCloud(np.array(points))
             pclFrame.setColor([0.,1.,0.]) #only to see it when overlaying with truth
-            ry_config.view_recopyMeshes()
+            C.view_recopyMeshes()
 
-            ry_config.addFrame('mid_point') \
+            C.addFrame('mid_point') \
                 .setPosition(midpoint) \
                 .setShape(ry.ST.marker, size=[.2]) \
                 .setColor([1, 1, 0])
         else:
             pclFrame.setPointCloud(np.array(points))
-            ry_config.view_recopyMeshes()
-            ry_config.getFrame('mid_point') \
+            C.view_recopyMeshes()
+            C.getFrame('mid_point') \
                 .setPosition(midpoint)
     
     return midpoint, points
 
 
-def fullObjectScan(bot, ry_config, obj_pos, arena, gripper_height=.2, gripper_distance=.2, save_as=None, view_count=16):
+def fullObjectScan(bot: ry.BotOp,
+                   C: ry.Config,
+                   obj_pos: np.ndarray,
+                   arena: Arena,
+                   gripper_height: float=.2,
+                   gripper_distance: float=.2,
+                   save_as: str="",
+                   view_count: int=16) -> [[float]]:
 
     all_points = []
     angle_step = 2*np.pi/view_count
@@ -158,11 +200,11 @@ def fullObjectScan(bot, ry_config, obj_pos, arena, gripper_height=.2, gripper_di
             gripper_height
         ])
 
-        ry_config.getFrame(f'view_point_{i}').setPosition(new_view+obj_pos)
-        bot.sync(ry_config)
+        C.getFrame(f'view_point_{i}').setPosition(new_view+obj_pos)
+        bot.sync(C)
 
         komo = ry.KOMO()
-        komo.setConfig(ry_config, True)
+        komo.setConfig(C, True)
         komo.setTiming(1., 1, 1., 0)
 
         komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
@@ -175,13 +217,13 @@ def fullObjectScan(bot, ry_config, obj_pos, arena, gripper_height=.2, gripper_di
         print(ret)
         bot.move(komo.getPath(), [3.])
         while bot.getTimeToEnd() > 0:
-            bot.sync(ry_config, .1)
+            bot.sync(C, .1)
 
-        points, _ = getFilteredPointCloud(bot, ry_config, arena)
+        points, _ = getFilteredPointCloud(bot, C, arena)
         all_points.append([list(p) for p in points])
-        getScannedObject(bot, ry_config, arena)
+        getScannedObject(bot, C, arena)
 
-    if save_as:
+    if len(save_as):
         json.dump(all_points, open(save_as, "w"))
     
     return all_points

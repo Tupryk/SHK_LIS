@@ -1,6 +1,9 @@
+import numpy as np
 import robotic as ry
 
-def setup_config(obj_pos=[-.50, .1, .69], on_real=False):
+
+def setup_config(obj_pos: np.ndarray = np.array([-.50, .1, .69]),
+                 on_real: bool=False) -> ry.Config:
 
     C = ry.Config()
     C.addFile(ry.raiPath('scenarios/pandaSingle.g'))
@@ -11,7 +14,6 @@ def setup_config(obj_pos=[-.50, .1, .69], on_real=False):
             .setShape(ry.ST.ssBox, [.1, .1, .1, 0]) \
             .setColor([1, .5, 0]) .setMass(.1)
     
-    # .setShape(ry.ST.cylinder, size=[.08, .06]) \
     C.addFrame('predicted_obj') \
         .setShape(ry.ST.marker, size=[.1]) \
         .setPosition(obj_pos) \
@@ -19,7 +21,7 @@ def setup_config(obj_pos=[-.50, .1, .69], on_real=False):
     
     return C
 
-def startup_robot(C, on_real):
+def startup_robot(C: ry.Config, on_real: bool) -> ry.BotOp:
 
     bot = ry.BotOp(C, on_real)
     bot.home(C)
