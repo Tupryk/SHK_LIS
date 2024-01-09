@@ -6,9 +6,20 @@ from RobotEnviroment.robotMovement import moveLocking
 
 
 def giveRandomAllowedAngle(allowedSegments: [[float]]) -> float:
-    segment = random.choice(allowedSegments)
-    value = random.random()*(segment[1]-segment[0])+segment[0]
-    return value
+
+    # This could be made better I think
+    total_len = 0
+    for seg in allowedSegments:
+        total_len += seg[1]-seg[0]
+    nonAdjustedAngle = np.random.random()*total_len
+
+    nonAdjustedAngle += allowedSegments[0][0]
+    for i, seg in enumerate(allowedSegments[:-1]):
+        if nonAdjustedAngle >= seg[0] and nonAdjustedAngle <= seg[1]:
+            return nonAdjustedAngle
+        nonAdjustedAngle += allowedSegments[i+1][0]-seg[1]
+    
+    return nonAdjustedAngle
 
 
 def pushMotionWaypoints(point: np.ndarray,
