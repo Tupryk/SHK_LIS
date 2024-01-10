@@ -28,7 +28,8 @@ def pushMotionWaypoints(point: np.ndarray,
                         start_dist: float=.15,
                         end_dist_range: [float]=[.1, .15],
                         initial_elevation: float=.15,
-                        config: ry.Config=None) -> [np.ndarray]:
+                        config: ry.Config=None,
+                        minHeight: float=.7) -> [np.ndarray]:
 
     robot2point = point-robot_pos
     dir = -1. if np.inner(robot2point, normal) < 0 else 1.
@@ -38,6 +39,8 @@ def pushMotionWaypoints(point: np.ndarray,
     initial = point.copy()+start_pos.copy()
     initial[2] += initial_elevation
     waypoints = [initial, point+start_pos, point, point-end_pos]
+    if waypoints[-1][2] < minHeight:
+        waypoints[-1][2] = minHeight
     
     if config:
         for i, w in enumerate(waypoints):
@@ -83,9 +86,9 @@ def moveToInitialPushPoint(bot: ry.BotOp,
     komo.addObjective([1.], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
     komo.addObjective([1.], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
 
-    dist_to_travel = np.linalg.norm(initialPoint-C.getFrame("l_gripper").getPosition())
-    timeToTravel = dist_to_travel/speed
-    return moveLocking(bot, C, komo, timeToTravel, verbose=verbose)
+    # dist_to_travel = np.linalg.norm(initialPoint-C.getFrame("l_gripper").getPosition())
+    # timeToTravel = dist_to_travel/speed
+    return moveLocking(bot, C, komo, 2., verbose=verbose)
 
 
 def moveThroughPushPath(bot: ry.BotOp,
