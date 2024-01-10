@@ -3,7 +3,7 @@ import robotic as ry
 from utils import *
 
 
-def grabObject(C: ry.Config, frameName: str):
+def grabObject(C: ry.Config, objFrameName: str):
 
     qHome = C.getJointState()
 
@@ -12,17 +12,17 @@ def grabObject(C: ry.Config, frameName: str):
     komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
     komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
 
-    komo.addObjective([], ry.FS.positionDiff, ['l_gripper', frameName], ry.OT.eq, [1e1])
-    komo.addObjective([], ry.FS.scalarProductXY, ['l_gripper', frameName], ry.OT.eq, [1e1], [0])
-    komo.addObjective([], ry.FS.scalarProductXZ, ['l_gripper', frameName], ry.OT.eq, [1e1], [0])
-    komo.addObjective([], ry.FS.distance, ['l_palm', frameName], ry.OT.ineq, [1e1])
+    komo.addObjective([], ry.FS.positionDiff, ['l_gripper', objFrameName], ry.OT.eq, [1e1])
+    komo.addObjective([], ry.FS.scalarProductXY, ['l_gripper', objFrameName], ry.OT.eq, [1e1], [0])
+    komo.addObjective([], ry.FS.scalarProductXZ, ['l_gripper', objFrameName], ry.OT.eq, [1e1], [0])
+    komo.addObjective([], ry.FS.distance, ['l_palm', objFrameName], ry.OT.ineq, [1e1])
 
     ret = ry.NLP_Solver(komo.nlp(), verbose=0).solve()
     return komo.getPath(), ret.feasible
 
 
 def moveGrabbedObject(C: ry.Config,
-                      frameName: str,
+                      objFrameName: str,
                       finalPos: np.ndarray,
                       finalRot: np.ndarray,
                       dropHeight: float=.01,
@@ -30,7 +30,7 @@ def moveGrabbedObject(C: ry.Config,
                       verbose: int=0):
     
     # Path direction (Treated as normalized 2d vector)
-    initialPos = C.getFrame(frameName).getPosition()
+    initialPos = C.getFrame(objFrameName).getPosition()
     dir = finalPos-initialPos
     dir[2] = 0
     dist = np.linalg.norm(dir)
@@ -68,12 +68,12 @@ def moveGrabbedObject(C: ry.Config,
 
 def moveObjectTo(C: ry.Config,
                  bot: ry.BotOp,
-                 frameName: str,
+                 objFrameName: str,
                  position: np.ndarray,
                  rotation: np.ndarray = np.array([])):
 
-    pickUpPathathSolution, feasible0 = grabObject(C, frameName)
-    movementPathSolution, feasible1 = moveGrabbedObject(C, frameName, position, rotation, verbose=1)
+    pickUpPathathSolution, feasible0 = grabObject(C, objFrameName)
+    movementPathSolution, feasible1 = moveGrabbedObject(C, objFrameName, position, rotation, verbose=1)
 
     if not feasible0 or not feasible1:
         print("Object movement infeasible.")
@@ -98,8 +98,9 @@ def moveObjectTo(C: ry.Config,
 
 def moveObjectBy(C: ry.Config,
                  bot: ry.BotOp,
-                 frameName: str,
+                 objFrameName: str,
                  position: np.ndarray,
                  rotation: np.ndarray = np.array([])):
-    position = C.getFrame(frameName).getPosition()+position
-    moveObjectTo(C, bot, frameName, position, rotation)
+    
+    position = C.getFrame(objFrameName).getPosition()+position
+    moveObjectTo(C, bot, objFrameName, position, rotation)
