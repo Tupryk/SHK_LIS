@@ -1,8 +1,8 @@
-import random
 import numpy as np
 import robotic as ry
+from typing import Tuple
 from utils.geometry import pathLength
-from RobotEnviroment.robotMovement import moveLocking
+from RobotEnviroment.robotMovement import moveLocking, moveLockingAndCheckForce
 
 
 def giveRandomAllowedAngle(allowedSegments: [[float]]) -> float:
@@ -28,7 +28,8 @@ def pushMotionWaypoints(point: np.ndarray,
                         start_dist: float=.15,
                         end_dist_range: [float]=[.1, .15],
                         initial_elevation: float=.15,
-                        config: ry.Config=None) -> [np.ndarray]:
+                        config: ry.Config=None,
+                        minHeight: float=.7) -> [np.ndarray]:
 
     robot2point = point-robot_pos
     dir = -1. if np.inner(robot2point, normal) < 0 else 1.
@@ -38,6 +39,8 @@ def pushMotionWaypoints(point: np.ndarray,
     initial = point.copy()+start_pos.copy()
     initial[2] += initial_elevation
     waypoints = [initial, point+start_pos, point, point-end_pos]
+    if waypoints[-1][2] < minHeight:
+        waypoints[-1][2] = minHeight
     
     if config:
         for i, w in enumerate(waypoints):
@@ -83,13 +86,9 @@ def moveToInitialPushPoint(bot: ry.BotOp,
     komo.addObjective([1.], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
     komo.addObjective([1.], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
 
-    ret = ry.NLP_Solver().setProblem(komo.nlp()).setOptions(stopTolerance=1e-2, verbose=verbose).solve()
-    if verbose: print(ret)
-    if verbose > 1 and ret.feasible: komo.view(True)
-
-    dist_to_travel = np.linalg.norm(initialPoint-C.getFrame("l_gripper").getPosition())
-    timeToTravel = dist_to_travel/speed
-    return moveLocking(bot, C, komo, timeToTravel, verbose=verbose)
+    # dist_to_travel = np.linalg.norm(initialPoint-C.getFrame("l_gripper").getPosition())
+    # timeToTravel = dist_to_travel/speed
+    return moveLocking(bot, C, komo, 2., verbose=verbose)
 
 
 def moveThroughPushPath(bot: ry.BotOp,
@@ -97,7 +96,7 @@ def moveThroughPushPath(bot: ry.BotOp,
                         waypoints: [np.ndarray],
                         direction: np.ndarray,
                         speed: float=.2,
-                        verbose: int=0) -> bool:
+                        verbose: int=0) -> Tuple[bool, float]:
 
     komo = ry.KOMO()
     komo.setConfig(C, True)
@@ -120,7 +119,10 @@ def moveThroughPushPath(bot: ry.BotOp,
     
     dist_to_travel = pathLength(waypoints)
     timeToTravel = dist_to_travel/speed
-    return moveLocking(bot, C, komo, timeToTravel, verbose=verbose)
+    
+    success, maxForce = moveLockingAndCheckForce(bot, C, komo, timeToTravel, verbose=verbose)
+
+    return success, maxForce
 
 
 def moveBackAfterPush(bot: ry.BotOp,
@@ -133,7 +135,7 @@ def moveBackAfterPush(bot: ry.BotOp,
     komo = ry.KOMO()
     komo.setConfig(C, True)
 
-    komo.setTiming(1, 2, 1., 2)
+    komo.setTiming(len(waypoints)-1, 2, 1., 2)
 
     komo.addControlObjective([], 0, 1e-2)
     komo.addControlObjective([], 2, 1e1)
@@ -142,12 +144,15 @@ def moveBackAfterPush(bot: ry.BotOp,
     komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
 
     # We assume that the gripper is already at the starting waypoint and with the correct rotation
-    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[-2])
     komo.addObjective([], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -direction)
     komo.addObjective([], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
     komo.addObjective([], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
 
-    dist_to_travel = np.linalg.norm(waypoints[-1]-waypoints[-2])
+    for i in range(len(waypoints)-1):
+        index = len(waypoints)-2 - i
+        komo.addObjective([i+1], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[index]) 
+
+    dist_to_travel = pathLength(waypoints)
     timeToTravel = dist_to_travel/speed
     return moveLocking(bot, C, komo, timeToTravel, verbose=verbose)
 
@@ -156,7 +161,7 @@ def doPushThroughWaypoints(C: ry.Config,
                            bot: ry.BotOp,
                            ways: [np.ndarray],
                            verbose: int=0,
-                           speed: float=.2) -> bool:
+                           speed: float=.2) -> Tuple[bool, float]:
 
     move_dir = ways[-1]-ways[1]
     pathLen = np.linalg.norm(move_dir) # Could use this to calculate the time the robot has to move for uniform velocities.
@@ -167,14 +172,14 @@ def doPushThroughWaypoints(C: ry.Config,
                                      ways[0], move_dir,
                                      speed=speed, verbose=verbose)
     if not success:
-        return False
+        return False, .0
     
     ### EXECUTE PUSH ###
-    success = moveThroughPushPath(bot, C,
+    success, maxForce = moveThroughPushPath(bot, C,
                                   ways, move_dir,
                                   speed=speed, verbose=verbose)
     if not success:
-        return False
+        return False, .0
     
     ### MOVE BACK ###
     # This is done so that the object is not disturbed after the push action
@@ -182,5 +187,6 @@ def doPushThroughWaypoints(C: ry.Config,
                                   ways, move_dir,
                                   speed=speed, verbose=verbose)
     if not success:
-        return False
-
+        return False, .0
+    
+    return True, maxForce

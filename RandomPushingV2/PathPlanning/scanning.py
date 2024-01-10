@@ -3,9 +3,8 @@ import numpy as np
 import robotic as ry
 from typing import Tuple, List
 from RobotEnviroment.arenas import Arena
+from RobotEnviroment.robotMovement import moveLocking
 
-
-# TODO: Make code less repetitive and make the time for robot to move relative to the distance it has to travel.
 
 def lookAtObjFromAngle(obj_pos: np.ndarray,
                   bot: ry.BotOp,
@@ -13,7 +12,8 @@ def lookAtObjFromAngle(obj_pos: np.ndarray,
                   angle: float,
                   radialDist: float=.2,
                   gripperHeight: float=.2,
-                  speed: float=.2):
+                  speed: float=.2,
+                  verbose: int=0) -> bool:
 
     C.getFrame("predicted_obj").setPosition(obj_pos) # This line should probaly not be in this function.
     q_now = C.getJointState()
@@ -35,19 +35,12 @@ def lookAtObjFromAngle(obj_pos: np.ndarray,
     komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_now)
 
     komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], final_gripper_pos)
-    komo.addObjective([1.], ry.FS.vectorZ, ["cameraWrist"], ry.OT.eq, [1.], -new_view/np.linalg.norm(new_view))
+    komo.addObjective([1.], ry.FS.vectorZ, ["cameraWrist"], ry.OT.eq, [1e1], -new_view/np.linalg.norm(new_view))
     komo.addObjective([1.], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
-
-    ret = ry.NLP_Solver().setProblem(komo.nlp()).setOptions(stopTolerance=1e-2, verbose=0).solve()
-    if not ret.feasible:
-        print("Error while trying to look at object.")
-        return
     
     dist_to_travel = np.linalg.norm(final_gripper_pos-C.getFrame("l_gripper").getPosition())
 
-    bot.move(komo.getPath(), [dist_to_travel/speed])
-    while bot.getTimeToEnd() > 0:
-        bot.sync(C, .1)
+    return moveLocking(bot, C, komo, dist_to_travel/speed, verbose=verbose)
 
 
 def lookAtObjRandAngle(obj_pos: np.ndarray,
