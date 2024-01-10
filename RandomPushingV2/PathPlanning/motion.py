@@ -1,8 +1,8 @@
-import random
 import numpy as np
 import robotic as ry
+from typing import Tuple
 from utils.geometry import pathLength
-from RobotEnviroment.robotMovement import moveLocking
+from RobotEnviroment.robotMovement import moveLocking, moveLockingAndCheckForce
 
 
 def giveRandomAllowedAngle(allowedSegments: [[float]]) -> float:
@@ -96,7 +96,7 @@ def moveThroughPushPath(bot: ry.BotOp,
                         waypoints: [np.ndarray],
                         direction: np.ndarray,
                         speed: float=.2,
-                        verbose: int=0) -> bool:
+                        verbose: int=0) -> Tuple[bool, float]:
 
     komo = ry.KOMO()
     komo.setConfig(C, True)
@@ -119,7 +119,10 @@ def moveThroughPushPath(bot: ry.BotOp,
     
     dist_to_travel = pathLength(waypoints)
     timeToTravel = dist_to_travel/speed
-    return moveLocking(bot, C, komo, timeToTravel, verbose=verbose)
+    
+    success, maxForce = moveLockingAndCheckForce(bot, C, komo, timeToTravel, verbose=verbose)
+
+    return success, maxForce
 
 
 def moveBackAfterPush(bot: ry.BotOp,
@@ -158,7 +161,7 @@ def doPushThroughWaypoints(C: ry.Config,
                            bot: ry.BotOp,
                            ways: [np.ndarray],
                            verbose: int=0,
-                           speed: float=.2) -> bool:
+                           speed: float=.2) -> Tuple[bool, float]:
 
     move_dir = ways[-1]-ways[1]
     pathLen = np.linalg.norm(move_dir) # Could use this to calculate the time the robot has to move for uniform velocities.
@@ -169,14 +172,14 @@ def doPushThroughWaypoints(C: ry.Config,
                                      ways[0], move_dir,
                                      speed=speed, verbose=verbose)
     if not success:
-        return False
+        return False, .0
     
     ### EXECUTE PUSH ###
-    success = moveThroughPushPath(bot, C,
+    success, maxForce = moveThroughPushPath(bot, C,
                                   ways, move_dir,
                                   speed=speed, verbose=verbose)
     if not success:
-        return False
+        return False, .0
     
     ### MOVE BACK ###
     # This is done so that the object is not disturbed after the push action
@@ -184,6 +187,6 @@ def doPushThroughWaypoints(C: ry.Config,
                                   ways, move_dir,
                                   speed=speed, verbose=verbose)
     if not success:
-        return False
+        return False, .0
     
-    return True
+    return True, maxForce
