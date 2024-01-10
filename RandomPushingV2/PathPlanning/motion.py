@@ -83,10 +83,6 @@ def moveToInitialPushPoint(bot: ry.BotOp,
     komo.addObjective([1.], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
     komo.addObjective([1.], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
 
-    ret = ry.NLP_Solver().setProblem(komo.nlp()).setOptions(stopTolerance=1e-2, verbose=verbose).solve()
-    if verbose: print(ret)
-    if verbose > 1 and ret.feasible: komo.view(True)
-
     dist_to_travel = np.linalg.norm(initialPoint-C.getFrame("l_gripper").getPosition())
     timeToTravel = dist_to_travel/speed
     return moveLocking(bot, C, komo, timeToTravel, verbose=verbose)
@@ -133,7 +129,7 @@ def moveBackAfterPush(bot: ry.BotOp,
     komo = ry.KOMO()
     komo.setConfig(C, True)
 
-    komo.setTiming(1, 2, 1., 2)
+    komo.setTiming(len(waypoints)-1, 2, 1., 2)
 
     komo.addControlObjective([], 0, 1e-2)
     komo.addControlObjective([], 2, 1e1)
@@ -142,12 +138,15 @@ def moveBackAfterPush(bot: ry.BotOp,
     komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
 
     # We assume that the gripper is already at the starting waypoint and with the correct rotation
-    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[-2])
     komo.addObjective([], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -direction)
     komo.addObjective([], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
     komo.addObjective([], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
 
-    dist_to_travel = np.linalg.norm(waypoints[-1]-waypoints[-2])
+    for i in range(len(waypoints)-1):
+        index = len(waypoints)-2 - i
+        komo.addObjective([i+1], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[index]) 
+
+    dist_to_travel = pathLength(waypoints)
     timeToTravel = dist_to_travel/speed
     return moveLocking(bot, C, komo, timeToTravel, verbose=verbose)
 
@@ -183,4 +182,5 @@ def doPushThroughWaypoints(C: ry.Config,
                                   speed=speed, verbose=verbose)
     if not success:
         return False
-
+    
+    return True
