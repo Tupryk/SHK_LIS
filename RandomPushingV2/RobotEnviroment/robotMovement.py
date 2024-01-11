@@ -29,6 +29,7 @@ def moveLockingAndCheckForce(
         C: ry.Config,
         komo: ry.KOMO,
         timeToTravel: float,
+        maxForceAllowed: float=np.nan,
         verbose: int=0) -> Tuple[bool, float]:
 
     ret = ry.NLP_Solver() \
@@ -49,7 +50,12 @@ def moveLockingAndCheckForce(
             y, J = C.eval(ry.FS.position, ['l_gripper'], [[0, 1, 0]])
             F = np.abs(J @ bot.get_tauExternal())
             max_force = F if F > max_force else max_force
-            
+            if max_force > maxForceAllowed:
+                print("Max force exceeded!")
+                break
+        
+        if verbose: print("Max force enacted: ", max_force)
+        
         return True, max_force
     
     print("Error while executing robot movement!")

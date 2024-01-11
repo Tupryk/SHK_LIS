@@ -5,6 +5,25 @@ from utils.geometry import pathLength
 from RobotEnviroment.robotMovement import moveLocking, moveLockingAndCheckForce
 
 
+def standardKomo(C: ry.Config, phases: int, slicesPerPhase: int=3) -> ry.KOMO:
+
+    q_now = C.getJointState()
+
+    komo = ry.KOMO()
+    komo.setConfig(C, True)
+
+    komo.setTiming(phases, slicesPerPhase, 1., 2)
+
+    komo.addControlObjective([], 0, 1e-2)
+    komo.addControlObjective([], 2, 1e1)
+
+    komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
+    komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
+    komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_now)
+
+    return komo
+
+
 def giveRandomAllowedAngle(allowedSegments: [[float]]) -> float:
 
     # This could be made better I think
@@ -81,11 +100,12 @@ def moveToInitialPushPoint(bot: ry.BotOp,
     komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
     komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_now)
 
-    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], initialPoint)
     komo.addObjective([1.], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -direction)
     komo.addObjective([1.], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
     komo.addObjective([1.], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
 
+    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], initialPoint)
+    
     # dist_to_travel = np.linalg.norm(initialPoint-C.getFrame("l_gripper").getPosition())
     # timeToTravel = dist_to_travel/speed
     return moveLocking(bot, C, komo, 2., verbose=verbose)
@@ -190,3 +210,53 @@ def doPushThroughWaypoints(C: ry.Config,
         return False, .0
     
     return True, maxForce
+
+
+def pokePoint(bot: ry.BotOp,
+              C: ry.Config,
+              point: np.ndarray,
+              maxPush: float=.02,
+              verbose: int=0) -> Tuple[bool, float]:
+
+    waypoints = [
+        point + np.array([.0, .0, .1]),
+        point + np.array([.0, .0, maxPush]),
+        point - np.array([.0, .0, maxPush]),
+    ]
+
+    # Go to starting position
+    komo = standardKomo(C, 1)
+
+    komo.addObjective([1.], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], [0., 0., 1.])
+    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[0])
+
+    success = moveLocking(bot, C, komo, 3., verbose=verbose)
+    if not success:
+        print("Failed getting to initial poking position!")
+        return False, .0
+
+    # Poke
+    komo = standardKomo(C, 2)
+
+    komo.addObjective([], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], [0., 0., 1.])
+    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[1])
+    komo.addObjective([2.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[2])
+
+    success, resultingForce = moveLockingAndCheckForce(bot, C, komo, 3., maxForceAllowed=1, verbose=verbose)
+    if not success:
+        print("Failed poking object!")
+        return False, .0
+
+    # Go back up
+    komo = standardKomo(C, 2)
+
+    komo.addObjective([], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], [0., 0., 1.])
+    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[1])
+    komo.addObjective([2.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[0])
+
+    success = moveLocking(bot, C, komo, 2., verbose=verbose)
+    if not success:
+        print("Failed moving back from poking!")
+        return False, .0
+
+    return True, resultingForce
