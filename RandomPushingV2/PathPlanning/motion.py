@@ -1,11 +1,10 @@
 import numpy as np
 import robotic as ry
 from typing import Tuple
-from utils.geometry import pathLength
-from RobotEnviroment.robotMovement import moveLocking, moveLockingAndCheckForce
+from RobotEnviroment.robotMovement import moveBlocking, moveBlockingAndCheckForce
 
 
-def standardKomo(C: ry.Config, phases: int, slicesPerPhase: int=3) -> ry.KOMO:
+def standardKomo(C: ry.Config, phases: int, slicesPerPhase: int=20) -> ry.KOMO:
 
     q_now = C.getJointState()
 
@@ -84,14 +83,14 @@ def moveToInitialPushPoint(bot: ry.BotOp,
                            C: ry.Config,
                            initialPoint: np.ndarray,
                            direction: np.ndarray,
-                           speed: float=.2,
+                           velocity: float=.2,
                            verbose: int=0) -> bool:
     q_now = C.getJointState()
 
     komo = ry.KOMO()
     komo.setConfig(C, True)
 
-    komo.setTiming(1, 2, 1., 2)
+    komo.setTiming(1, 20, 1., 2)
 
     komo.addControlObjective([], 0, 1e-2)
     komo.addControlObjective([], 2, 1e1)
@@ -106,23 +105,21 @@ def moveToInitialPushPoint(bot: ry.BotOp,
 
     komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], initialPoint)
     
-    # dist_to_travel = np.linalg.norm(initialPoint-C.getFrame("l_gripper").getPosition())
-    # timeToTravel = dist_to_travel/speed
-    return moveLocking(bot, C, komo, 2., verbose=verbose)
+    return moveBlocking(bot, C, komo, velocity, verbose=verbose)
 
 
 def moveThroughPushPath(bot: ry.BotOp,
                         C: ry.Config,
                         waypoints: [np.ndarray],
                         direction: np.ndarray,
-                        speed: float=.2,
+                        velocity: float=.2,
                         verbose: int=0) -> Tuple[bool, float]:
 
     komo = ry.KOMO()
     komo.setConfig(C, True)
 
     # We assume that the gripper is already at the starting waypoint and with the correct rotation
-    komo.setTiming(len(waypoints)-1, 5, 1., 2)
+    komo.setTiming(len(waypoints)-1, 20, 1., 2)
 
     komo.addControlObjective([], 0, 1e-2)
     komo.addControlObjective([], 2, 1e1)
@@ -137,10 +134,7 @@ def moveThroughPushPath(bot: ry.BotOp,
     for i, way in enumerate(waypoints[1:]):
         komo.addObjective([i+1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], way)
     
-    dist_to_travel = pathLength(waypoints)
-    timeToTravel = dist_to_travel/speed
-    
-    success, maxForce = moveLockingAndCheckForce(bot, C, komo, timeToTravel, verbose=verbose)
+    success, maxForce = moveBlockingAndCheckForce(bot, C, komo, velocity, verbose=verbose)
 
     return success, maxForce
 
@@ -149,13 +143,13 @@ def moveBackAfterPush(bot: ry.BotOp,
                       C: ry.Config,
                       waypoints: [np.ndarray],
                       direction: np.ndarray,
-                      speed: float=.2,
+                      velocity: float=.2,
                       verbose: int=0) -> bool:
     
     komo = ry.KOMO()
     komo.setConfig(C, True)
 
-    komo.setTiming(len(waypoints)-1, 2, 1., 2)
+    komo.setTiming(len(waypoints)-1, 20, 1., 2)
 
     komo.addControlObjective([], 0, 1e-2)
     komo.addControlObjective([], 2, 1e1)
@@ -172,16 +166,14 @@ def moveBackAfterPush(bot: ry.BotOp,
         index = len(waypoints)-2 - i
         komo.addObjective([i+1], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[index]) 
 
-    dist_to_travel = pathLength(waypoints)
-    timeToTravel = dist_to_travel/speed
-    return moveLocking(bot, C, komo, timeToTravel, verbose=verbose)
+    return moveBlocking(bot, C, komo, velocity, verbose=verbose)
 
 
 def doPushThroughWaypoints(C: ry.Config,
                            bot: ry.BotOp,
                            ways: [np.ndarray],
                            verbose: int=0,
-                           speed: float=.2) -> Tuple[bool, float]:
+                           velocity: float=.2) -> Tuple[bool, float]:
 
     move_dir = ways[-1]-ways[1]
     pathLen = np.linalg.norm(move_dir) # Could use this to calculate the time the robot has to move for uniform velocities.
@@ -190,14 +182,14 @@ def doPushThroughWaypoints(C: ry.Config,
     ### GO TO INITIAL PUSH POINT ###
     success = moveToInitialPushPoint(bot, C,
                                      ways[0], move_dir,
-                                     speed=speed, verbose=verbose)
+                                     velocity=velocity, verbose=verbose)
     if not success:
         return False, .0
     
     ### EXECUTE PUSH ###
     success, maxForce = moveThroughPushPath(bot, C,
                                   ways, move_dir,
-                                  speed=speed, verbose=verbose)
+                                  velocity=velocity, verbose=verbose)
     if not success:
         return False, .0
     
@@ -205,7 +197,7 @@ def doPushThroughWaypoints(C: ry.Config,
     # This is done so that the object is not disturbed after the push action
     success = moveBackAfterPush(bot, C,
                                   ways, move_dir,
-                                  speed=speed, verbose=verbose)
+                                  velocity=velocity, verbose=verbose)
     if not success:
         return False, .0
     
@@ -215,6 +207,7 @@ def doPushThroughWaypoints(C: ry.Config,
 def pokePoint(bot: ry.BotOp,
               C: ry.Config,
               point: np.ndarray,
+              velocity: float=.1,
               maxPush: float=.02,
               verbose: int=0) -> Tuple[bool, float]:
 
@@ -230,7 +223,7 @@ def pokePoint(bot: ry.BotOp,
     komo.addObjective([1.], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], [0., 0., 1.])
     komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[0])
 
-    success = moveLocking(bot, C, komo, 3., verbose=verbose)
+    success = moveBlocking(bot, C, komo, velocity, verbose=verbose)
     if not success:
         print("Failed getting to initial poking position!")
         return False, .0
@@ -242,7 +235,7 @@ def pokePoint(bot: ry.BotOp,
     komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[1])
     komo.addObjective([2.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[2])
 
-    success, resultingForce = moveLockingAndCheckForce(bot, C, komo, 3., maxForceAllowed=1, verbose=verbose)
+    success, resultingForce = moveBlockingAndCheckForce(bot, C, komo, velocity, maxForceAllowed=1, verbose=verbose)
     if not success:
         print("Failed poking object!")
         return False, .0
@@ -254,7 +247,7 @@ def pokePoint(bot: ry.BotOp,
     komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[1])
     komo.addObjective([2.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[0])
 
-    success = moveLocking(bot, C, komo, 2., verbose=verbose)
+    success = moveBlocking(bot, C, komo, velocity, verbose=verbose)
     if not success:
         print("Failed moving back from poking!")
         return False, .0

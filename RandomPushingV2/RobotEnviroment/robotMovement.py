@@ -3,7 +3,7 @@ import robotic as ry
 from typing import Tuple
 
 
-def moveLocking(bot: ry.BotOp, C: ry.Config, komo: ry.KOMO, timeToTravel: float, verbose: int=0) -> bool:
+def moveBlocking(bot: ry.BotOp, C: ry.Config, komo: ry.KOMO, velocity: float, verbose: int=0) -> bool:
 
     ret = ry.NLP_Solver() \
         .setProblem(komo.nlp()) \
@@ -15,7 +15,7 @@ def moveLocking(bot: ry.BotOp, C: ry.Config, komo: ry.KOMO, timeToTravel: float,
 
     if ret.feasible:
         
-        bot.move(komo.getPath(), [timeToTravel])
+        bot.moveAutoTimed(komo.getPath(), velocity)
         while bot.getTimeToEnd() > 0:
             bot.sync(C, .1)
 
@@ -23,12 +23,13 @@ def moveLocking(bot: ry.BotOp, C: ry.Config, komo: ry.KOMO, timeToTravel: float,
     
     print("Error while executing robot movement!")
     return False
+
     
-def moveLockingAndCheckForce(
+def moveBlockingAndCheckForce(
         bot: ry.BotOp,
         C: ry.Config,
         komo: ry.KOMO,
-        timeToTravel: float,
+        velocity: float,
         maxForceAllowed: float=np.nan,
         verbose: int=0) -> Tuple[bool, float]:
 
@@ -42,7 +43,7 @@ def moveLockingAndCheckForce(
 
     if ret.feasible:
         
-        bot.move(komo.getPath(), [timeToTravel])
+        bot.moveAutoTimed(komo.getPath(), velocity)
         
         max_force = -np.inf
         while bot.getTimeToEnd() > 0:

@@ -3,7 +3,7 @@ import numpy as np
 import robotic as ry
 from typing import Tuple, List
 from RobotEnviroment.arenas import Arena
-from RobotEnviroment.robotMovement import moveLocking
+from RobotEnviroment.robotMovement import moveBlocking
 
 
 def lookAtObjFromAngle(obj_pos: np.ndarray,
@@ -12,7 +12,7 @@ def lookAtObjFromAngle(obj_pos: np.ndarray,
                   angle: float,
                   radialDist: float=.2,
                   gripperHeight: float=.2,
-                  speed: float=.2,
+                  velocity: float=.2,
                   verbose: int=0) -> bool:
 
     C.getFrame("predicted_obj").setPosition(obj_pos) # This line should probaly not be in this function.
@@ -28,7 +28,7 @@ def lookAtObjFromAngle(obj_pos: np.ndarray,
 
     komo = ry.KOMO()
     komo.setConfig(C, True)
-    komo.setTiming(1., 3, 1., 0)
+    komo.setTiming(1., 20, 1., 0)
 
     komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
     komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
@@ -40,7 +40,7 @@ def lookAtObjFromAngle(obj_pos: np.ndarray,
     
     dist_to_travel = np.linalg.norm(final_gripper_pos-C.getFrame("l_gripper").getPosition())
 
-    return moveLocking(bot, C, komo, dist_to_travel/speed, verbose=verbose)
+    return moveBlocking(bot, C, komo, velocity, verbose=verbose)
 
 
 def lookAtObjRandAngle(obj_pos: np.ndarray,
@@ -127,17 +127,7 @@ def getFilteredPointCloud(bot: ry.BotOp,
     return objectpoints, colors
 
 
-def getScannedObject(bot: ry.BotOp,
-                     C: ry.Config,
-                     arena: Arena,
-                     visuals: bool=True) -> Tuple[np.ndarray, np.ndarray]:
-
-    points, _ = getFilteredPointCloud(bot, C, arena)
-    points = np.array(points)
-
-    if not len(points):
-        print("ERROR: Object not found!")
-        return np.array([]), np.array([])
+def getPointsMinMaxCoors(points: [[float]]) -> Tuple[np.ndarray, np.ndarray]:
 
     min_coor = np.array([
         min([p[0] for p in points]),
@@ -150,6 +140,23 @@ def getScannedObject(bot: ry.BotOp,
         max([p[1] for p in points]),
         max([p[2] for p in points])
     ])
+
+    return min_coor, max_coor
+
+
+def getScannedObject(bot: ry.BotOp,
+                     C: ry.Config,
+                     arena: Arena,
+                     visuals: bool=True) -> Tuple[np.ndarray, np.ndarray]:
+
+    points, _ = getFilteredPointCloud(bot, C, arena)
+    points = np.array(points)
+
+    if not len(points):
+        print("ERROR: Object not found!")
+        return np.array([]), np.array([])
+
+    min_coor, max_coor = getPointsMinMaxCoors(points)
 
     midpoint = (max_coor+min_coor)/2
     
