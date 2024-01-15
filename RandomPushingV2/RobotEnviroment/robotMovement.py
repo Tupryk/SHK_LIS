@@ -15,7 +15,8 @@ def moveBlocking(bot: ry.BotOp, C: ry.Config, komo: ry.KOMO, velocity: float, ve
 
     if ret.feasible:
         
-        bot.moveAutoTimed(komo.getPath(), velocity)
+        # bot.moveAutoTimed(komo.getPath(), velocity)
+        bot.move(komo.getPath(), [3.])
         while bot.getTimeToEnd() > 0:
             bot.sync(C, .1)
 
@@ -43,7 +44,8 @@ def moveBlockingAndCheckForce(
 
     if ret.feasible:
         
-        bot.moveAutoTimed(komo.getPath(), velocity)
+        # bot.moveAutoTimed(komo.getPath(), velocity)
+        bot.move(komo.getPath(), [3.])
         
         max_force = -np.inf
         while bot.getTimeToEnd() > 0:

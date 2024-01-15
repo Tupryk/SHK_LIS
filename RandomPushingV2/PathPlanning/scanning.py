@@ -4,6 +4,7 @@ import robotic as ry
 from typing import Tuple, List
 from RobotEnviroment.arenas import Arena
 from RobotEnviroment.robotMovement import moveBlocking
+from PathPlanning.motion import standardKomo
 
 
 def lookAtObjFromAngle(obj_pos: np.ndarray,
@@ -16,7 +17,6 @@ def lookAtObjFromAngle(obj_pos: np.ndarray,
                   verbose: int=0) -> bool:
 
     C.getFrame("predicted_obj").setPosition(obj_pos) # This line should probaly not be in this function.
-    q_now = C.getJointState()
 
     new_view = np.array([
         radialDist * np.sin(angle),
@@ -26,20 +26,12 @@ def lookAtObjFromAngle(obj_pos: np.ndarray,
 
     final_gripper_pos = new_view + obj_pos
 
-    komo = ry.KOMO()
-    komo.setConfig(C, True)
-    komo.setTiming(1., 20, 1., 0)
-
-    komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
-    komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
-    komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_now)
+    komo = standardKomo(C, 1)
 
     komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], final_gripper_pos)
     komo.addObjective([1.], ry.FS.vectorZ, ["cameraWrist"], ry.OT.eq, [1e1], -new_view/np.linalg.norm(new_view))
     komo.addObjective([1.], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
     
-    dist_to_travel = np.linalg.norm(final_gripper_pos-C.getFrame("l_gripper").getPosition())
-
     return moveBlocking(bot, C, komo, velocity, verbose=verbose)
 
 
@@ -47,10 +39,12 @@ def lookAtObjRandAngle(obj_pos: np.ndarray,
                   bot: ry.BotOp,
                   C: ry.Config,
                   radialDist: float=.2,
-                  gripperHeight: float=.2):
+                  gripperHeight: float=.2,
+                  velocity: float=.2,
+                  verbose: int=0):
     
     angle = np.random.random()*np.pi*2
-    lookAtObjFromAngle(obj_pos, bot, C, angle, radialDist, gripperHeight)
+    lookAtObjFromAngle(obj_pos, bot, C, angle, radialDist, gripperHeight, velocity=velocity, verbose=verbose)
 
 
 def lookAtObj(obj_pos: np.ndarray,

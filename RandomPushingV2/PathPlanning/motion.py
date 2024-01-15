@@ -14,6 +14,7 @@ def standardKomo(C: ry.Config, phases: int, slicesPerPhase: int=20) -> ry.KOMO:
     komo.setTiming(phases, slicesPerPhase, 1., 2)
 
     komo.addControlObjective([], 0, 1e-2)
+    komo.addControlObjective([], 1, 1e-1)
     komo.addControlObjective([], 2, 1e1)
 
     komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
@@ -85,19 +86,8 @@ def moveToInitialPushPoint(bot: ry.BotOp,
                            direction: np.ndarray,
                            velocity: float=.2,
                            verbose: int=0) -> bool:
-    q_now = C.getJointState()
 
-    komo = ry.KOMO()
-    komo.setConfig(C, True)
-
-    komo.setTiming(1, 20, 1., 2)
-
-    komo.addControlObjective([], 0, 1e-2)
-    komo.addControlObjective([], 2, 1e1)
-
-    komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
-    komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
-    komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_now)
+    komo = standardKomo(C, 1)
 
     komo.addObjective([1.], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -direction)
     komo.addObjective([1.], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
@@ -114,18 +104,9 @@ def moveThroughPushPath(bot: ry.BotOp,
                         direction: np.ndarray,
                         velocity: float=.2,
                         verbose: int=0) -> Tuple[bool, float]:
-
-    komo = ry.KOMO()
-    komo.setConfig(C, True)
-
+    
     # We assume that the gripper is already at the starting waypoint and with the correct rotation
-    komo.setTiming(len(waypoints)-1, 20, 1., 2)
-
-    komo.addControlObjective([], 0, 1e-2)
-    komo.addControlObjective([], 2, 1e1)
-
-    komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
-    komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
+    komo = standardKomo(C, len(waypoints)-1)
 
     komo.addObjective([], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -direction)
     komo.addObjective([], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
@@ -146,16 +127,7 @@ def moveBackAfterPush(bot: ry.BotOp,
                       velocity: float=.2,
                       verbose: int=0) -> bool:
     
-    komo = ry.KOMO()
-    komo.setConfig(C, True)
-
-    komo.setTiming(len(waypoints)-1, 20, 1., 2)
-
-    komo.addControlObjective([], 0, 1e-2)
-    komo.addControlObjective([], 2, 1e1)
-
-    komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
-    komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
+    komo = standardKomo(C, len(waypoints)-1)
 
     # We assume that the gripper is already at the starting waypoint and with the correct rotation
     komo.addObjective([], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -direction)
