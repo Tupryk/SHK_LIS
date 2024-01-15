@@ -3,6 +3,8 @@ import robotic as ry
 from typing import Tuple
 from RobotEnviroment.robotMovement import moveBlocking, moveBlockingAndCheckForce
 
+STANDARD_VELOCITY = .2
+
 
 def standardKomo(C: ry.Config, phases: int, slicesPerPhase: int=20) -> ry.KOMO:
 
@@ -80,11 +82,39 @@ def pushMotionWaypoints(point: np.ndarray,
     return waypoints
 
 
+def specialPush(bot: ry.BotOp,
+                C: ry.Config,
+                delta: float,
+                velocity: float=STANDARD_VELOCITY,
+                verbose: int=0) -> Tuple[bool, float]:
+    
+    '''Creates a motion problem using "waypoint engineering" approach: define waypoints and motion relative to these'''
+    komo = standardKomo(C, 2)
+
+    delta /= np.linalg.norm(delta)
+    mat = np.eye(3) - np.outer(delta, delta)
+
+    komo.addObjective([0, 1], ry.FS.negDistance, ['l_gripper', 'mid_point'], ry.OT.ineq, [1], [-.1])
+    komo.addObjective([1], ry.FS.positionDiff, ['l_gripper', 'way1'], ry.OT.eq, [1e1])
+    komo.addObjective([1, 2], ry.FS.positionDiff, ['l_gripper', 'way1'], ry.OT.eq, mat)
+
+    komo.addObjective([2], ry.FS.positionDiff, ['l_gripper', 'way2'], ry.OT.eq, [1e1])
+
+    komo.addObjective([2], ry.FS.qItself, [], ry.OT.eq, [1e1], [], 1) # No motion derivative of q vector ergo the velocity = 0
+
+    komo.addObjective([1, 2], ry.FS.vectorX, ['l_gripper'], ry.OT.eq, delta.reshape(1, 3))
+    komo.addObjective([1, 2], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1], [0, 0, 1])
+
+    success, maxForce = moveBlockingAndCheckForce(bot, C, komo, velocity, verbose=verbose)
+
+    return success, maxForce
+
+
 def moveToInitialPushPoint(bot: ry.BotOp,
                            C: ry.Config,
                            initialPoint: np.ndarray,
                            direction: np.ndarray,
-                           velocity: float=.2,
+                           velocity: float=STANDARD_VELOCITY,
                            verbose: int=0) -> bool:
 
     komo = standardKomo(C, 1)
