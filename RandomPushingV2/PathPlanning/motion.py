@@ -116,100 +116,38 @@ def specialPush(bot: ry.BotOp,
     return success, maxForce
 
 
-def moveToInitialPushPoint(bot: ry.BotOp,
+def doPushThroughWaypoints(bot: ry.BotOp,
                            C: ry.Config,
-                           initialPoint: np.ndarray,
-                           direction: np.ndarray,
-                           velocity: float=STANDARD_VELOCITY,
-                           verbose: int=0) -> bool:
-
-    komo = standardKomo(C, 1)
-
-    komo.addObjective([1.], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -direction)
-    komo.addObjective([1.], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
-    komo.addObjective([1.], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
-
-    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], initialPoint)
+                           waypoints: [np.ndarray],
+                           velocity: float=.2,
+                           verbose: int=0) -> Tuple[bool, float]:
     
-    return moveBlocking(bot, C, komo, velocity, verbose=verbose)
+    # Calculate gripper direction
+    gripper_dir = waypoints[-1]-waypoints[1]
+    gripper_dir /= np.linalg.norm(gripper_dir)
+    # Gripper should be at a 45 degree angle with respect to the table.
+    gripper_dir[2] = -np.sqrt(2)
+    gripper_dir /= np.linalg.norm(gripper_dir)
+    gripper_dir *= -1
 
+    # Define the komo problem
+    total_move_positions = len(waypoints)*2. - 1.
+    komo = standardKomo(C, total_move_positions)
 
-def moveThroughPushPath(bot: ry.BotOp,
-                        C: ry.Config,
-                        waypoints: [np.ndarray],
-                        direction: np.ndarray,
-                        velocity: float=.2,
-                        verbose: int=0) -> Tuple[bool, float]:
-    
-    # We assume that the gripper is already at the starting waypoint and with the correct rotation
-    komo = standardKomo(C, len(waypoints)-1)
+    komo.addObjective([1., total_move_positions], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], gripper_dir)
+    komo.addObjective([1., total_move_positions], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
+    komo.addObjective([1., total_move_positions], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
 
-    komo.addObjective([], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -direction)
-    komo.addObjective([], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
-    komo.addObjective([], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
+    for i, way in enumerate(waypoints):
+        komo.addObjective([i], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], way)
 
+    waypoints.reverse()
     for i, way in enumerate(waypoints[1:]):
-        komo.addObjective([i+1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], way)
-    
+        komo.addObjective([i+len(waypoints)], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], way)
+
+    # Execute motion if possible
     success, maxForce = moveBlockingAndCheckForce(bot, C, komo, velocity, verbose=verbose)
-
     return success, maxForce
-
-
-def moveBackAfterPush(bot: ry.BotOp,
-                      C: ry.Config,
-                      waypoints: [np.ndarray],
-                      direction: np.ndarray,
-                      velocity: float=.2,
-                      verbose: int=0) -> bool:
-    
-    komo = standardKomo(C, len(waypoints)-1)
-
-    # We assume that the gripper is already at the starting waypoint and with the correct rotation
-    komo.addObjective([], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], -direction)
-    komo.addObjective([], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
-    komo.addObjective([], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
-
-    for i in range(len(waypoints)-1):
-        index = len(waypoints)-2 - i
-        komo.addObjective([i+1], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[index]) 
-
-    return moveBlocking(bot, C, komo, velocity, verbose=verbose)
-
-
-def doPushThroughWaypoints(C: ry.Config,
-                           bot: ry.BotOp,
-                           ways: [np.ndarray],
-                           verbose: int=0,
-                           velocity: float=.2) -> Tuple[bool, float]:
-
-    move_dir = ways[-1]-ways[1]
-    pathLen = np.linalg.norm(move_dir) # Could use this to calculate the time the robot has to move for uniform velocities.
-    move_dir /= pathLen
-
-    ### GO TO INITIAL PUSH POINT ###
-    success = moveToInitialPushPoint(bot, C,
-                                     ways[0], move_dir,
-                                     velocity=velocity, verbose=verbose)
-    if not success:
-        return False, .0
-    
-    ### EXECUTE PUSH ###
-    success, maxForce = moveThroughPushPath(bot, C,
-                                  ways, move_dir,
-                                  velocity=velocity, verbose=verbose)
-    if not success:
-        return False, .0
-    
-    ### MOVE BACK ###
-    # This is done so that the object is not disturbed after the push action
-    success = moveBackAfterPush(bot, C,
-                                  ways, move_dir,
-                                  velocity=velocity, verbose=verbose)
-    if not success:
-        return False, .0
-    
-    return True, maxForce
 
 
 def pokePoint(bot: ry.BotOp,

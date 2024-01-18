@@ -11,8 +11,8 @@ def lookAtObjFromAngle(obj_pos: np.ndarray,
                   bot: ry.BotOp,
                   C: ry.Config,
                   angle: float,
-                  radialDist: float=.2,
-                  gripperHeight: float=.2,
+                  radialDist: float=.3,
+                  gripperHeight: float=.3,
                   velocity: float=.2,
                   verbose: int=0) -> bool:
 

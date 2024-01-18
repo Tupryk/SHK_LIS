@@ -4,7 +4,7 @@ from typing import Tuple
 
 
 def moveBlocking(bot: ry.BotOp, C: ry.Config, komo: ry.KOMO, velocity: float, verbose: int=0) -> bool:
-
+    
     ret = ry.NLP_Solver() \
         .setProblem(komo.nlp()) \
         .setOptions(stopTolerance=1e-2, verbose=0) \
@@ -15,7 +15,7 @@ def moveBlocking(bot: ry.BotOp, C: ry.Config, komo: ry.KOMO, velocity: float, ve
 
     if ret.feasible:
         
-        bot.moveAutoTimed(komo.getPath(), velocity)
+        bot.moveAutoTimed(komo.getPath(), velocity) # moveAutoTimed prints out two numbers, idk why
         while bot.getTimeToEnd() > 0:
             bot.sync(C, .1)
 
