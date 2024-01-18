@@ -23,6 +23,8 @@ def standardKomo(C: ry.Config, phases: int, slicesPerPhase: int=20) -> ry.KOMO:
     komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
     komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_now)
 
+    komo.addObjective([phases], ry.FS.qItself, [], ry.OT.eq, [10.], [], 1)
+
     return komo
 
 
@@ -106,6 +108,8 @@ def specialPush(bot: ry.BotOp,
 
     komo.addObjective([1, 2], ry.FS.vectorX, ['l_gripper'], ry.OT.eq, direction.reshape(1, 3))
     komo.addObjective([1, 2], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1], -direction)
+
+    # komo.addObjective([1, 2], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.]) # Don't squish camera onto table
 
     success, maxForce = moveBlockingAndCheckForce(bot, C, komo, velocity, verbose=verbose)
 

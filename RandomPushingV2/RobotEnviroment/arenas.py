@@ -6,8 +6,9 @@ from RobotEnviroment.visual import plotLine
 
 
 class Arena:
-    def __init__(self, middleP=np.array([0, 0])):
+    def __init__(self, middleP=np.array([0, 0]), name="arena"):
         self.middleP = middleP
+        self.name = name
 
     def area(self):
         return self.width * self.height
@@ -146,8 +147,8 @@ class CircularArena(Arena):
 
 class RectangularArena(Arena):
     
-    def __init__(self, middleP, width, height, innerR=None, middlePCirc=[]):
-        super().__init__(middleP)
+    def __init__(self, middleP, width, height, innerR=None, middlePCirc=[], name="arena"):
+        super().__init__(middleP, name)
         self.width = width
         self.height = height
         self.innerR = innerR
@@ -159,7 +160,7 @@ class RectangularArena(Arena):
     
 
     #TODO Implement plotArena for rectArena
-    def plotArena(self, ry_config, resolution=48):
+    def plotArena(self, C, color=[1., 0., 0.], resolution=48):
         '''
         Visualises the pushing area.
         Returns:
@@ -188,15 +189,15 @@ class RectangularArena(Arena):
 
             if self.innerR:
                 inner_point = self.middlePCirc + self.innerR * dir_vec_circ
-                ry_config.addFrame(f'inner_arena_{i}') \
+                C.addFrame(f'{self.name}-inner_arena_{i}') \
                     .setPosition(inner_point) \
                     .setShape(ry.ST.sphere, size=[.02]) \
-                    .setColor([1, 0, 0])
+                    .setColor(color)
                 
-            ry_config.addFrame(f'outer_arena_{i}') \
+            C.addFrame(f'{self.name}-outer_arena_{i}') \
                 .setPosition(outer_point) \
                 .setShape(ry.ST.sphere, size=[.02]) \
-                .setColor([1, 0, 0])
+                .setColor(color)
     
 
     def point_in_rect(self, point):
