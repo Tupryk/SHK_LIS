@@ -199,3 +199,53 @@ def pokePoint(bot: ry.BotOp,
         return False, .0
 
     return True, resultingForce
+
+
+def straightPush(bot: ry.BotOp,
+                C: ry.Config,
+                start: np.ndarray,
+                obj_pos: np.ndarray,
+                end: np.ndarray,
+                velocity: float=.2,
+                verbose: int=0) -> bool:
+    
+    # Calculate gripper direction
+    gripper_dir = end-start
+    gripper_dir /= np.linalg.norm(gripper_dir)
+    gripper_dir *= -1.
+
+
+    # Define the komo problem
+    komo = ry.KOMO()
+    komo.setConfig(C, True)
+    komo.setTiming(2., 20, 1., 1)
+
+    komo.addControlObjective([], 1, 1e1)
+    # komo.addControlObjective([], 2, 1e1)
+
+    komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
+    komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
+
+    komo.addObjective([1., 2.], ry.FS.vectorY, ['l_gripper'], ry.OT.eq, [1e1], gripper_dir)
+    komo.addObjective([1., 2.], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], [0., 0., 1.])
+
+    komo.addObjective([1., 2.], ry.FS.distance, ["l_gripper", "start"], ry.OT.sos, [1e1])
+    komo.addObjective([1., 2.], ry.FS.distance, ["l_gripper", "end"], ry.OT.sos, [1e1])
+
+    # komo.addObjective([1., 2.], ry.FS.distance, ["l_gripper", "predicted_obj"], ry.OT.sos, [1e2])
+    delta = end-start
+    delta /= np.linalg.norm(delta, 2)
+
+
+    komo.addObjective([1,2], ry.FS.positionDiff, ['l_gripper', "start"], ry.OT.eq, (np.eye(3)-np.outer(delta,delta)))
+
+    # komo.addObjective([1.5], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], obj_pos)
+
+    komo.addObjective([1.], ry.FS.positionDiff, ['l_gripper', "start"], ry.OT.eq, [1e1])
+    komo.addObjective([2.], ry.FS.positionDiff, ['l_gripper', "end"], ry.OT.eq, [1e1])
+
+    komo.addObjective([2], ry.FS.qItself, [], ry.OT.eq, [1e1], [], 1)
+
+    # Execute motion if possible
+    success = moveBlocking(bot, C, komo, velocity, verbose=verbose)
+    return success
