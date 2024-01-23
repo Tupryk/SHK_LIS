@@ -1,5 +1,6 @@
 import numpy as np
 import robotic as ry
+from typing import Union
 import matplotlib.pyplot as plt
 
 
@@ -9,12 +10,11 @@ class RobotMan():
         
         self.C = ry.Config()
         self.C.addFile(ry.raiPath(config_file))
-        self.C.addFrame('block') \
-            .setPosition([-.3, .04, .67]) \
-            .setShape(ry.ST.ssBox, size=[.05, .05, .05, .002]) \
-            .setColor([1, .5, 0]) \
-            .setContact(True) \
-            .setMass(1e-2)
+        
+        self.createNewBlock("block", [-.3, .04, .67])
+        self.createNewBlock("block1", [.3, -.06, .67], color=[1, 0, 0])
+        self.createNewBlock("block2", [.3, .04, .67], color=[0, 1, 0])
+        self.createNewBlock("block3", [.3, .14, .67], color=[0, 0, 1])
         
         self.C.view()
         
@@ -32,6 +32,15 @@ class RobotMan():
             "xy": [ry.FS.scalarProductYY, ry.FS.scalarProductYZ, ry.FS.scalarProductZZ],
             "xz": [ry.FS.scalarProductYX, ry.FS.scalarProductYZ, ry.FS.scalarProductZZ]
         }
+
+
+    def createNewBlock(self, name: str, position: Union[np.ndarray, list], color: [float]=[1., .5, .0]):
+        self.C.addFrame(name) \
+            .setPosition(position) \
+            .setShape(ry.ST.ssBox, size=[.05, .05, .05, .002]) \
+            .setColor(color) \
+            .setContact(True) \
+            .setMass(1e-2)
 
 
     def initKomo(self, phases: int, slicesPerPhase: int=20, enableCollisions: bool=True) -> ry.KOMO:
@@ -67,16 +76,36 @@ class RobotMan():
     def grabBlock(self, objFrame: str="block", grasp_direction: str='x'):
         """
         """
+        for i in ["x", "y"]:
+            self.initKomo(phases=1)
+
+            initialGrab_pos = self.C.getFrame(objFrame).getPosition() + np.array([0, 0, .1])
+            self.createWaypointFrame("grab_initial", initialGrab_pos)
+
+            self.komo.addObjective([1], ry.FS.positionDiff, ["l_gripper", "grab_initial"], ry.OT.eq, [1e1])
+            self.komo.addObjective([2], ry.FS.positionDiff, ["l_gripper", objFrame], ry.OT.eq, [1e1])
+            self.komo.addObjective([1, 2], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0, 0, 1])
+            
+            if grasp_direction == 'x':
+                self.komo.addObjective([1, 2], ry.FS.scalarProductXY, [objFrame, "l_gripper"], ry.OT.eq, [1e0])
+            elif grasp_direction == 'y':
+                self.komo.addObjective([1, 2], ry.FS.scalarProductXX, [objFrame, "l_gripper"], ry.OT.eq, [1e0])
+            else:
+                raise Exception(f'PickDirection "{grasp_direction}" not defined:')
+            
+            success = self.solveAndExecuteProblem()
+            if success: return
+
+        print("Movement was not possible :(")
+        
+
+    def placeBlock(self, where: np.ndarray, zRotation: float=np.nan):
+        """
+        Supposes the robot is currently holding a block
+        """
         self.initKomo(phases=1)
-
-        self.komo.addObjective([1], ry.FS.positionDiff, ["l_gripper", objFrame], ry.OT.eq, [1e1])
-
-        if grasp_direction == 'x':
-            self.komo.addObjective([1], ry.FS.scalarProductXY, [objFrame, "l_gripper"], ry.OT.eq, [1e0])
-        elif grasp_direction == 'y':
-            self.komo.addObjective([1], ry.FS.scalarProductXX, [objFrame, "l_gripper"], ry.OT.eq, [1e0])
-        else:
-            raise Exception(f'PickDirection "{grasp_direction}" not defined:')
+        self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], where)
+        self.komo.addObjective([1], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0, 0, 1])
 
 
     def grabBlockSide(self, objFrame: str="block", grasp_direction: str='xz') -> ry.KOMO():
@@ -101,19 +130,26 @@ class RobotMan():
     
     def pushBlock(self, objFrame: str="block", pushDirection: str="-x", obj_radious: float=.025):
 
-        start = self.C.addFrame("start", objFrame) \
-            .setPosition([obj_radious*2, 0, 0]) \
-            .setShape(ry.ST.sphere, size=[.01, .002]) \
-            .setColor([0, 1, 0])
-        
-        end = self.C.addFrame("end", objFrame) \
-            .setPosition([-obj_radious*2, 0, 0]) \
-            .setShape(ry.ST.sphere, size=[.01, .002]) \
-            .setColor([0, 1, 0])
+        obj_pos = self.C.getFrame(objFrame).getPosition()
 
-        start = self.C.getFrame(objFrame).getPosition() + start.getPosition()
-        end = self.C.getFrame(objFrame).getPosition() + end.getPosition()
-        delta = end-start
+        if pushDirection == "-x":
+            offset_start = np.array([obj_radious*4, 0, 0])
+        elif pushDirection == "+x":
+            offset_start = np.array([-obj_radious*4, 0, 0])
+        elif pushDirection == "-y":
+            offset_start = np.array([0, obj_radious*4, 0])
+        elif pushDirection == "+y":
+            offset_start = np.array([0, -obj_radious*4, 0])
+        else:
+            raise Exception(f'PushDirection "{pushDirection}" not defined:')
+        
+        start_pos = obj_pos + offset_start
+        end_pos = obj_pos - offset_start
+
+        self.createWaypointFrame("start", start_pos)
+        self.createWaypointFrame("end", end_pos)
+
+        delta = end_pos-start_pos
         delta /= np.linalg.norm(delta)
 
         self.initKomo(2, enableCollisions=False)
@@ -124,10 +160,21 @@ class RobotMan():
         self.komo.addObjective([1, 2], ry.FS.distance, ["l_gripper", "start"], ry.OT.sos, [1e1])
         self.komo.addObjective([1, 2], ry.FS.distance, ["l_gripper", "end"], ry.OT.sos, [1e1])
 
-        self.komo.addObjective([1, 2], ry.FS.positionDiff, ['l_gripper', "start"], ry.OT.eq, np.eye(3) - np.outer(delta, delta))
+        mat = np.eye(3) - np.outer(delta, delta)
+        self.komo.addObjective([1, 2], ry.FS.positionDiff, ['l_gripper', "start"], ry.OT.eq, mat)
 
         self.komo.addObjective([1], ry.FS.positionDiff, ['l_gripper', "start"], ry.OT.eq, [1e1])
         self.komo.addObjective([2], ry.FS.positionDiff, ['l_gripper', "end"], ry.OT.eq, [1e1])
+
+
+    def createWaypointFrame(self, name: str, position: np.ndarray, color: [float]=[0., 1., 0.]) -> ry.Frame:
+        way = self.C.getFrame(name)
+        if not way:
+            way = self.C.addFrame(name) \
+                        .setShape(ry.ST.sphere, size=[.01, .002])
+
+        way.setPosition(position).setColor(color)
+        return way
 
 
     def viewMovementGraph(self):
@@ -153,8 +200,8 @@ class RobotMan():
         ret = ry.NLP_Solver(self.komo.nlp(), verbose=0).solve()
     
         if not ret.feasible:
-            print("The motion problem defined is not feasible :(")
             if verbose:
+                print("The motion problem defined is not feasible :(")
                 self.komo.view_play(True)
             return False
 
