@@ -2,19 +2,19 @@ import numpy as np
 from highManipulation import RobotMan
 
 
-robot = RobotMan(1)
+robot = RobotMan()
 
 for i in range(1, 4):
 
     komo = robot.grabBlock(f"block{i}")
-    robot.solveAndExecuteProblem(verbose=0)
     robot.gripperClose()
 
-    robot.placeBlock([-.3, .04, .69+(.05*i)])
-    robot.solveAndExecuteProblem()
+    onTopOf = f"block{i-1}" if i != 1 else "block"
+    robot.placeBlock(onTopOf)
     robot.gripperOpen()
 
-    robot.moveToPointFreely(np.array([-.3, .04, .8]))
-    robot.solveAndExecuteProblem()
+    new_starting_pos = robot.C.getFrame("block").getPosition() + np.array([0, 0, .15])
+    robot.moveToPointFreely(new_starting_pos)
 
+robot.goHome()
 robot.C.view(True)

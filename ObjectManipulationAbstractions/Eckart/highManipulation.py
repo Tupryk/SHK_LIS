@@ -6,21 +6,21 @@ import matplotlib.pyplot as plt
 
 class RobotMan():
 
-    def __init__(self, total_time: int, config_file: str="scenarios/pandaSingle.g", real_robot: bool=False):
+    def __init__(self, config_file: str="scenarios/pandaSingle.g", real_robot: bool=False):
         
         self.C = ry.Config()
         self.C.addFile(ry.raiPath(config_file))
         
         self.createNewBlock("block", [-.3, .04, .67])
-        self.createNewBlock("block1", [.3, -.06, .67], color=[1, 0, 0])
+        self.createNewBlock("block1", [.35, .19, .67], color=[1, 0, 0])
         self.createNewBlock("block2", [.3, .04, .67], color=[0, 1, 0])
-        self.createNewBlock("block3", [.3, .14, .67], color=[0, 0, 1])
+        self.createNewBlock("block3", [.35, -.11, .67], color=[0, 0, 1])
         
         self.C.view()
         
         self.bot = ry.BotOp(self.C, real_robot)
 
-        self.initKomo(total_time)
+        self.komo = None
 
         self.times = 0
 
@@ -32,6 +32,10 @@ class RobotMan():
             "xy": [ry.FS.scalarProductYY, ry.FS.scalarProductYZ, ry.FS.scalarProductZZ],
             "xz": [ry.FS.scalarProductYX, ry.FS.scalarProductYZ, ry.FS.scalarProductZZ]
         }
+
+    
+    def goHome(self):
+        self.bot.home(self.C)
 
 
     def createNewBlock(self, name: str, position: Union[np.ndarray, list], color: [float]=[1., .5, .0]):
@@ -63,116 +67,154 @@ class RobotMan():
         self.komo.addObjective([phases], ry.FS.qItself, [], ry.OT.eq, [10.], [], 1)
 
 
-    def moveToPointFreely(self, point: np.ndarray):
+    def moveToPointFreely(self, point: Union[np.ndarray, list]):
         self.initKomo(phases=1)
-
         self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], point)
+        self.solveAndExecuteProblem()
+
+
+    def moveToPointZLock(self, point: Union[np.ndarray, list]):
+        self.initKomo(phases=1)
+        self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], point)
+        self.komo.addObjective([1], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0, 0, 1])
+        self.solveAndExecuteProblem()
 
 
     def moveToPointWithRotation(self):
         pass
 
 
-    def grabBlock(self, objFrame: str="block", grasp_direction: str='x'):
-        """
-        """
-        for i in ["x", "y"]:
-            self.initKomo(phases=1)
+    def mustBeStraight(self, frames: [str]=[], points: [np.ndarray]=[], phases: [int]=[1, 2]):
 
-            initialGrab_pos = self.C.getFrame(objFrame).getPosition() + np.array([0, 0, .1])
-            self.createWaypointFrame("grab_initial", initialGrab_pos)
+        if len(frames) == 2:
+            delta = self.C.getFrame(frames[1]).getPosition()-self.C.getFrame(frames[0]).getPosition()
+            delta /= np.linalg.norm(delta)
+            mat = np.eye(3) - np.outer(delta, delta)
+            self.komo.addObjective(phases, ry.FS.positionDiff, ['l_gripper', frames[0]], ry.OT.eq, mat)
+
+        elif len(points) == 2:
+            self.createWaypointFrame("straight_point", points[0], color=[1., .5, .0])
+            delta = points[1]-points[0]
+            delta /= np.linalg.norm(delta)
+            mat = np.eye(3) - np.outer(delta, delta)
+            self.komo.addObjective(phases, ry.FS.positionDiff, ['l_gripper', "straight_point"], ry.OT.eq, mat)
+
+        else:
+            raise Exception('Invalid input lengths:')
+            
+
+    def grabBlock(self, objFrame: str="block", grasp_direction: str=''):
+        """
+        """
+
+        initialGrab_pos = self.C.getFrame(objFrame).getPosition() + np.array([0, 0, .1])
+        self.createWaypointFrame("grab_initial", initialGrab_pos)
+
+        graspOptions = ["x", "y"] if not grasp_direction else [grasp_direction]
+        for i in graspOptions:
+            self.initKomo(phases=2, enableCollisions=False)
 
             self.komo.addObjective([1], ry.FS.positionDiff, ["l_gripper", "grab_initial"], ry.OT.eq, [1e1])
             self.komo.addObjective([2], ry.FS.positionDiff, ["l_gripper", objFrame], ry.OT.eq, [1e1])
             self.komo.addObjective([1, 2], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0, 0, 1])
+
+            self.mustBeStraight(["grab_initial", objFrame])
             
-            if grasp_direction == 'x':
+            if i == 'x':
                 self.komo.addObjective([1, 2], ry.FS.scalarProductXY, [objFrame, "l_gripper"], ry.OT.eq, [1e0])
-            elif grasp_direction == 'y':
+            elif i == 'y':
                 self.komo.addObjective([1, 2], ry.FS.scalarProductXX, [objFrame, "l_gripper"], ry.OT.eq, [1e0])
             else:
-                raise Exception(f'PickDirection "{grasp_direction}" not defined:')
+                raise Exception(f'Grasp direction "{i}" not defined:')
             
             success = self.solveAndExecuteProblem()
             if success: return
 
-        print("Movement was not possible :(")
+        raise Exception("Grasp motion was not possible :(")
         
 
-    def placeBlock(self, where: np.ndarray, zRotation: float=np.nan):
+    def placeBlock(self, where: Union[np.ndarray, str], gripperX_aligned: str=""):
         """
         Supposes the robot is currently holding a block
         """
-        self.initKomo(phases=1)
-        self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], where)
-        self.komo.addObjective([1], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0, 0, 1])
+        options = ["x", "y"] if not gripperX_aligned else [gripperX_aligned]
+        for i in options:
 
+            self.initKomo(phases=1)
 
-    def grabBlockSide(self, objFrame: str="block", grasp_direction: str='xz') -> ry.KOMO():
-        """
-        grasp a box with a centered top grasp (axes fully aligned)
-        """
-        self.initKomo(phases=1)
+            if type(where) == str:
+                self.komo.addObjective([1], ry.FS.positionRel, ["l_gripper", where], ry.OT.eq, [1e1], [.0, .0, .075])
+            else:
+                self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], where)
 
-        try:
-            align = self.blockGraspOrientations[grasp_direction]
-        except:
-            raise Exception(f'PickDirection "{grasp_direction}" not defined:')
+            self.komo.addObjective([1], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0, 0, 1])
 
-        # position: centered
-        self.komo.addObjective([1], ry.FS.positionDiff, ["l_gripper", objFrame], ry.OT.eq, [1e1])
+            if i == "x":
+                self.komo.addObjective([1], ry.FS.vectorX, ["l_gripper"], ry.OT.eq, [1e1], [1, 0, 0])
+            elif i == "y":
+                self.komo.addObjective([1], ry.FS.vectorX, ["l_gripper"], ry.OT.eq, [1e1], [0, 1, 0])
+            else:
+                raise Exception(f'Grasp direction "{i}" not defined:')
+                
+            success = self.solveAndExecuteProblem()
+            if success: return
 
-        # orientation: grasp axis orthogonal to target plane X-specific
-        self.komo.addObjective([1], align[0], [objFrame, "l_gripper"], ry.OT.eq, [1e0])
-        self.komo.addObjective([1], align[1], [objFrame, "l_gripper"], ry.OT.eq, [1e0])
-        self.komo.addObjective([1], align[2], [objFrame, "l_gripper"], ry.OT.eq, [1e0])
+        raise Exception("Place motion was not possible :(")
 
     
-    def pushBlock(self, objFrame: str="block", pushDirection: str="-x", obj_radious: float=.025):
+    def pushBlock(self, objFrame: str="block", push_direction: str="", push_length: float=.1, obj_radious: float=.025):
 
-        obj_pos = self.C.getFrame(objFrame).getPosition()
+        graspOptions = ["-x", "+x", "-y", "+y"] if not push_direction else [push_direction]
+        for i in graspOptions:
+            obj_pos = self.C.getFrame(objFrame).getPosition()
 
-        if pushDirection == "-x":
-            offset_start = np.array([obj_radious*4, 0, 0])
-        elif pushDirection == "+x":
-            offset_start = np.array([-obj_radious*4, 0, 0])
-        elif pushDirection == "-y":
-            offset_start = np.array([0, obj_radious*4, 0])
-        elif pushDirection == "+y":
-            offset_start = np.array([0, -obj_radious*4, 0])
-        else:
-            raise Exception(f'PushDirection "{pushDirection}" not defined:')
-        
-        start_pos = obj_pos + offset_start
-        end_pos = obj_pos - offset_start
+            if i == "-x":
+                start_dir = np.array([1, 0, 0])
+            elif i == "+x":
+                start_dir = np.array([-1, 0, 0])
+            elif i == "-y":
+                start_dir = np.array([0, 1, 0])
+            elif i == "+y":
+                start_dir = np.array([0, -1, 0])
+            else:
+                raise Exception(f'Push direction "{i}" not defined:')
+            
+            offset_start = obj_radious*4
 
-        self.createWaypointFrame("start", start_pos)
-        self.createWaypointFrame("end", end_pos)
+            start_pos = obj_pos + start_dir*offset_start
+            end_pos = obj_pos - start_dir*push_length
 
-        delta = end_pos-start_pos
-        delta /= np.linalg.norm(delta)
+            self.createWaypointFrame("start", start_pos)
+            self.createWaypointFrame("end", end_pos)
 
-        self.initKomo(2, enableCollisions=False)
-        
-        self.komo.addObjective([1, 2], ry.FS.vectorX, ['l_gripper'], ry.OT.eq, delta.reshape(1,3))
-        self.komo.addObjective([1, 2], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1], [0,0,1])
+            delta = end_pos-start_pos
+            delta /= np.linalg.norm(delta)
 
-        self.komo.addObjective([1, 2], ry.FS.distance, ["l_gripper", "start"], ry.OT.sos, [1e1])
-        self.komo.addObjective([1, 2], ry.FS.distance, ["l_gripper", "end"], ry.OT.sos, [1e1])
+            self.initKomo(2, enableCollisions=False)
+            
+            self.komo.addObjective([1, 2], ry.FS.vectorX, ['l_gripper'], ry.OT.eq, delta.reshape(1,3))
+            self.komo.addObjective([1, 2], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1], [0,0,1])
 
-        mat = np.eye(3) - np.outer(delta, delta)
-        self.komo.addObjective([1, 2], ry.FS.positionDiff, ['l_gripper', "start"], ry.OT.eq, mat)
+            self.komo.addObjective([1, 2], ry.FS.distance, ["l_gripper", "start"], ry.OT.sos, [1e1])
+            self.komo.addObjective([1, 2], ry.FS.distance, ["l_gripper", "end"], ry.OT.sos, [1e1])
 
-        self.komo.addObjective([1], ry.FS.positionDiff, ['l_gripper', "start"], ry.OT.eq, [1e1])
-        self.komo.addObjective([2], ry.FS.positionDiff, ['l_gripper', "end"], ry.OT.eq, [1e1])
+            mat = np.eye(3) - np.outer(delta, delta)
+            self.komo.addObjective([1, 2], ry.FS.positionDiff, ['l_gripper', "start"], ry.OT.eq, mat)
+
+            self.komo.addObjective([1], ry.FS.positionDiff, ['l_gripper', "start"], ry.OT.eq, [1e1])
+            self.komo.addObjective([2], ry.FS.positionDiff, ['l_gripper', "end"], ry.OT.eq, [1e1])
+
+            success = self.solveAndExecuteProblem()
+            if success: return
+
+        raise Exception("Push motion was not possible :(")
 
 
     def createWaypointFrame(self, name: str, position: np.ndarray, color: [float]=[0., 1., 0.]) -> ry.Frame:
         way = self.C.getFrame(name)
         if not way:
             way = self.C.addFrame(name) \
-                        .setShape(ry.ST.sphere, size=[.01, .002])
-
+            .setShape(ry.ST.sphere, size=[.01, .002])
         way.setPosition(position).setColor(color)
         return way
 
@@ -201,7 +243,7 @@ class RobotMan():
     
         if not ret.feasible:
             if verbose:
-                print("The motion problem defined is not feasible :(")
+                print("The motion problem defined is not feasible!")
                 self.komo.view_play(True)
             return False
 
@@ -216,3 +258,30 @@ class RobotMan():
             self.bot.sync(self.C)
 
         return True
+    
+    ### EXPERIMENTAL STUFF ###
+    def grabBlockSide(self, objFrame: str="block", grasp_direction: str="") -> ry.KOMO():
+        """
+        grasp a box with a centered top grasp (axes fully aligned)
+        """
+        options = self.blockGraspOrientations.items() if not grasp_direction else [grasp_direction]
+        for i in options:
+            self.initKomo(phases=1)
+
+            try:
+                align = self.blockGraspOrientations[i]
+            except:
+                raise Exception(f'Grasp direction "{i}" not defined:')
+
+            # position: centered
+            self.komo.addObjective([1], ry.FS.positionDiff, ["l_gripper", objFrame], ry.OT.eq, [1e1])
+
+            # orientation: grasp axis orthogonal to target plane X-specific
+            self.komo.addObjective([1], align[0], [objFrame, "l_gripper"], ry.OT.eq, [1e0])
+            self.komo.addObjective([1], align[1], [objFrame, "l_gripper"], ry.OT.eq, [1e0])
+            self.komo.addObjective([1], align[2], [objFrame, "l_gripper"], ry.OT.eq, [1e0])
+
+            success = self.solveAndExecuteProblem()
+            if success: return
+
+        print("Grasp motion was not possible :(")
