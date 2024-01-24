@@ -3,6 +3,7 @@ import sys
 import numpy as np
 from solid import scad_render_to_file
 from solid.objects import cube, translate, union, rotate, color, cylinder
+from armComponents import controlBox, powerInverter, robotBase
 
 SEGMENTS = 48
 
@@ -34,6 +35,7 @@ bolr = np.linalg.norm((p1+p2)*.5)  # Big outer lines rad length
 iiwsl = wsl+((wheel_gap+piece_width*.5) *
              np.tan((side_count*2-2)*np.pi/(side_count*2)-np.pi*.5))*2
 print(iiwsl)
+
 
 def rotate_vec(vec, angle):
     angle = np.deg2rad(angle)
@@ -83,31 +85,33 @@ def basic_geometry():
                         cube([boll, piece_width, piece_width*2], center=True)))))
         shapes.append(big_outer_line)
 
-        vertical_bar1 = union()(
-            color("Yellow")(
-                translate([-.085, -.02, .01])(
-                    rotate((0, 0, -90))(
-                        cube([.568, piece_width, piece_width], center=True)))))
-        shapes.append(vertical_bar1)
+    vertical_bar1 = union()(
+        color("Blue")(
+            translate([-.085, -.02, .01])(
+                rotate((0, 0, -90))(
+                    cube([.568, piece_width, piece_width], center=True)))))
+    shapes.append(vertical_bar1)
 
-        vertical_bar2 = union()(
-            color("Yellow")(
-                translate([.085, -.02, .01])(
-                    rotate((0, 0, -90))(
-                        cube([.568, piece_width, piece_width], center=True)))))
-        shapes.append(vertical_bar2)
+    vertical_bar2 = union()(
+        color("Blue")(
+            translate([.085, -.02, .01])(
+                rotate((0, 0, -90))(
+                    cube([.568, piece_width, piece_width], center=True)))))
+    shapes.append(vertical_bar2)
 
-        horizontal_bar = union()(
-            color("Yellow")(
-                translate([0, .1, -.01])(
-                    cube([.6, piece_width, piece_width], center=True))))
-        shapes.append(horizontal_bar)
-        """
-        battery_pack = union()(
-            color("Blue")(
-                translate([.12, .1, .1])(
-                    cube([.18, .135, .2], center=True))))
-        shapes.append(battery_pack)"""
+    horizontal_bar = union()(
+        color("Blue")(
+            translate([0, .1, -.01])(
+                cube([.6, piece_width, piece_width], center=True))))
+    shapes.append(horizontal_bar)
+
+    # Could remove battery-pack rotation but this could lead to the hot air of the control box to directly hit the batteies. In any case it's not difficult to change
+    battery_pack = union()(
+        color("Yellow")(
+            translate([.12+.08, .1+.125, .1+.02])(
+                rotate((0, 0, -60))(
+                    cube([.18, .135, .2], center=True)))))
+    shapes.append(battery_pack)
 
     """
     print(f"Red:         {wsl:.1f} cm")
@@ -119,6 +123,19 @@ def basic_geometry():
     print("--------------------------")
     print(f"Diameter:   {(np.linalg.norm(np.array([wsl*.5, ctow]))*2):.1f} cm")
     """
+
+    control_box = controlBox()
+    control_box = translate([0, -.07, .02+.045])(control_box)
+    shapes.append(control_box)
+
+    power_inverter = powerInverter()
+    power_inverter = translate([-.055, .195, .02+.06])(power_inverter)
+    shapes.append(power_inverter)
+
+    robot_base = robotBase()
+    robot_base = translate([0, -.3575*.5, .045+.04 + .02+.045])(robot_base)
+    shapes.append(robot_base)
+
     print(f"Orange:      {(wsl*100):.1f} cm")
     print(f"Purple:      {(boll*100):.1f} cm")
     print(f"Red:         {(iiwsl*100):.1f} cm")
