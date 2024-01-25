@@ -319,6 +319,41 @@ def point2pointPCR(pcd_files, visualize=False):
 
     return points
 
+def point2pointPCR_normal(pcd_files, visualize=False):
+
+    # Load the first point cloud as the initial reference
+    merged_cloud = o3d.io.read_point_cloud("data/" + pcd_files[0])
+
+    # Define the initial transformation matrix as an identity matrix
+    init_transformation = np.identity(4)
+
+    for pcd_file in pcd_files[1:]:
+        # Load the next point cloud
+        cloud_to_align = o3d.io.read_point_cloud("data/" + pcd_file)
+
+        # Compute normals for each point cloud
+
+        cloud_to_align.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=.025, max_nn=20))
+        merged_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=.025, max_nn=20))
+
+        # Perform ICP-Normal registration
+        icp_result = o3d.pipelines.registration.registration_icp(
+            cloud_to_align, merged_cloud, .02, init_transformation,
+            o3d.pipelines.registration.TransformationEstimationPointToPlane(),
+        )
+
+        # Apply the transformation to align the point cloud with the reference
+        cloud_to_align.transform(icp_result.transformation)
+        print("Transformation:", icp_result.transformation)
+
+        # Combine the aligned point cloud with the merged point cloud
+        merged_cloud += cloud_to_align
+
+    # Save the merged point cloud to a new PCD file
+    o3d.io.write_point_cloud('merged_point_cloud_normal.pcd', merged_cloud)
+    return 0
+
+
 def standardICP(source, target):
     threshold = 0.02
     iterations = 10
