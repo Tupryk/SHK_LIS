@@ -4,7 +4,11 @@
 *.dylib
 
 
+# Robotic logs
+z.costReport
+z.costReport.plt
 z.log.global
+z.plotcmd
 
 #compile temporaries 
 build/
