@@ -80,6 +80,7 @@ class RobotMan():
 
     def moveToPointFreely(self, point: Union[np.ndarray, list]):
         self.initKomo(phases=1)
+        self.komo.addControlObjective([], 0, 1e1)
         self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], point)
         self.solveAndExecuteProblem()
 
