@@ -1,6 +1,7 @@
 import numpy as np
 import robotic as ry
 from typing import Tuple
+from utils.raiUtils import pathMustBeStraight
 from RobotEnviroment.robotMovement import moveBlocking, moveBlockingAndCheckForce
 
 STANDARD_VELOCITY = .2
@@ -15,7 +16,7 @@ def standardKomo(C: ry.Config, phases: int, slicesPerPhase: int=20) -> ry.KOMO:
 
     komo.setTiming(phases, slicesPerPhase, 1., 2)
 
-    komo.addControlObjective([], 0, 1e-2)
+    # komo.addControlObjective([], 0, 1e-2)
     komo.addControlObjective([], 1, 1e-1)
     komo.addControlObjective([], 2, 1e1)
 
@@ -61,7 +62,7 @@ def pushMotionWaypoints(point: np.ndarray,
     end_pos = normal * end_dist * dir
     initial = point.copy()+start_pos.copy()
     initial[2] += initial_elevation
-    waypoints = [initial, point+start_pos, point, point-end_pos]
+    waypoints = [initial, point+start_pos, point-end_pos]
     if waypoints[-1][2] < minHeight:
         waypoints[-1][2] = minHeight
     
@@ -131,19 +132,15 @@ def doPushThroughWaypoints(bot: ry.BotOp,
     gripper_dir *= -1
 
     # Define the komo problem
-    total_move_positions = len(waypoints)*2. - 1.
-    komo = standardKomo(C, total_move_positions)
+    komo = standardKomo(C, 4)
 
-    komo.addObjective([1., total_move_positions], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], gripper_dir)
-    komo.addObjective([1., total_move_positions], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
-    komo.addObjective([1., total_move_positions], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
+    komo.addObjective([1., 4], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], gripper_dir)
+    komo.addObjective([1., 4], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
+    komo.addObjective([1., 4], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
 
-    for i, way in enumerate(waypoints):
-        komo.addObjective([i], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], way)
+    komo.addObjective([2], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[0])
 
-    waypoints.reverse()
-    for i, way in enumerate(waypoints[1:]):
-        komo.addObjective([i+len(waypoints)], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], way)
+    komo = pathMustBeStraight(C, komo, points=[waypoints[1], waypoints[2]], phases=[3, 4])
 
     # Execute motion if possible
     success, maxForce = moveBlockingAndCheckForce(bot, C, komo, velocity, verbose=verbose)

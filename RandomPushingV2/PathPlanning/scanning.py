@@ -34,7 +34,7 @@ def lookAtObjVectorField(obj_pos: np.ndarray,
     
     C.getFrame("predicted_obj").setPosition(obj_pos) # This line should probaly not be in this function.
 
-    look_dir = giveLookDirectionFromVectorField(obj_pos)
+    look_dir = giveLookDirectionFromVectorField(obj_pos[:2])
     look_dir *= radialDist
     new_view = np.array([
         look_dir[0],
