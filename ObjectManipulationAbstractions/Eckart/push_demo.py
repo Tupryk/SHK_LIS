@@ -7,6 +7,6 @@ robot.gripperClose()
 for i in ["+x", "-x", "+y", "-y"]:
     robot.pushBlock(push_direction=i)
 
-    robot.moveToPointZLock([-.3, .04, .8])
+    robot.moveBack()
 
 robot.C.view(True)
