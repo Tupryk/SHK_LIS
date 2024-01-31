@@ -96,7 +96,7 @@ class RobotMan():
         pass
 
 
-    def pathMustBeStraight(self, frames: [str]=[], points: [np.ndarray]=[], phases: [int]=[1, 2]):
+    def pathMustBeStraight(self, frames: [str]=[], points: [np.ndarray]=[], phases: [int]=[1, 2], gotoPoints=False):
 
         if len(frames) == 2:
             delta = self.C.getFrame(frames[1]).getPosition()-self.C.getFrame(frames[0]).getPosition()
@@ -104,12 +104,20 @@ class RobotMan():
             mat = np.eye(3) - np.outer(delta, delta)
             self.komo.addObjective(phases, ry.FS.positionDiff, ['l_gripper', frames[0]], ry.OT.eq, mat)
 
+            if gotoPoints:
+                self.komo.addObjective([phases[0]], ry.FS.positionDiff, ['l_gripper', frames[0]], ry.OT.eq, [1e1])
+                self.komo.addObjective([phases[1]], ry.FS.positionDiff, ['l_gripper', frames[1]], ry.OT.eq, [1e1])
+
         elif len(points) == 2:
             self.createWaypointFrame("straight_point", points[0], color=[1., .5, .0])
             delta = points[1]-points[0]
             delta /= np.linalg.norm(delta)
             mat = np.eye(3) - np.outer(delta, delta)
             self.komo.addObjective(phases, ry.FS.positionDiff, ['l_gripper', "straight_point"], ry.OT.eq, mat)
+
+            if gotoPoints:
+                self.komo.addObjective([phases[0]], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], points[0])
+                self.komo.addObjective([phases[1]], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], points[1])
 
         else:
             raise Exception('Invalid input lengths:')
@@ -197,10 +205,10 @@ class RobotMan():
                 self.komo.addObjective([1], ry.FS.vectorX, ["l_gripper"], ry.OT.eq, [1e1], [0, 1, 0])
             elif i == "+y":
                 # TODO
-                pass
+                raise Exception("Not implemented")
             elif i == "-y":
                 # TODO
-                pass
+                raise Exception("Not implemented")
                 
             success = self.solveAndExecuteProblem()
             if success:
@@ -267,14 +275,33 @@ class RobotMan():
         return way
 
 
-    def moveBack(self, how_much: float=.1):
+    def moveBack(self, how_much: float=.1, dir: str="y"):
         """
-        TODO Move in the direction of the z vector of the gripper by "how_much" in a straight line
+        Move in the direction of the y vector of the gripper by "how_much" in a straight line
         """
-        self.initKomo(phases=1)
+
+        # Create waypoint frames
         initial_gripper_pos = self.C.getFrame("l_gripper").getPosition()
-        end_pos = self.C.getFrame("l_gripper").getAttributes("vectorZ") * how_much + initial_gripper_pos
-        self.pathMustBeStraight(points=[initial_gripper_pos, end_pos], phases=[0, 1])
+        self.createWaypointFrame("retreat_start_pos", initial_gripper_pos)
+
+        end_frame = self.C.addFrame("retreat_end_pos", "l_gripper") \
+            .setShape(ry.ST.sphere, size=[.01, .002])
+        
+        # Set movement direction
+        if dir == "y":
+            end_frame_rel_pos = [.0, how_much, .0]
+        elif dir == "z":
+            end_frame_rel_pos = [.0, .0, how_much]
+        else:
+            raise Exception(f"Value '{dir}' is not a valid retreat direction!")
+        
+        end_frame.setRelativePosition(end_frame_rel_pos)
+        
+        # Define komo
+        self.initKomo(phases=1)
+        self.pathMustBeStraight(frames=["retreat_start_pos", "retreat_end_pos"], phases=[0, 1])
+
+        # Move
         success = self.solveAndExecuteProblem()
         if not success:
             raise Exception("Moving back was not possibles :(")
