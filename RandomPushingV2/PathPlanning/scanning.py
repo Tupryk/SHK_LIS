@@ -7,6 +7,51 @@ from RobotEnviroment.robotMovement import moveBlocking
 from PathPlanning.motion import standardKomo
 
 
+def giveLookDirectionFromVectorField(obj_pos: np.ndarray,
+                                     pos_mean: np.ndarray=np.array([-.50, -.1]),
+                                     prob_thresh: float=.2) -> np.ndarray:
+
+    vec = pos_mean - obj_pos
+    vec_len =  np.linalg.norm(vec)
+    vec /= vec_len
+    
+    prob = vec_len / prob_thresh
+    prob = 1 if prob > 1 else prob
+
+    if prob == 1: return vec
+    if np.random.random() > prob:
+        rand_angle = np.random.random() * 2*np.pi
+        return np.array([np.cos(rand_angle), np.sin(rand_angle)])
+    return vec
+
+def lookAtObjVectorField(obj_pos: np.ndarray,
+                  bot: ry.BotOp,
+                  C: ry.Config,
+                  radialDist: float=.3,
+                  gripperHeight: float=.3,
+                  velocity: float=.2,
+                  verbose: int=0) -> bool:
+    
+    C.getFrame("predicted_obj").setPosition(obj_pos) # This line should probaly not be in this function.
+
+    look_dir = giveLookDirectionFromVectorField(obj_pos)
+    look_dir *= radialDist
+    new_view = np.array([
+        look_dir[0],
+        look_dir[1],
+        gripperHeight
+    ])
+
+    final_gripper_pos = new_view + obj_pos
+
+    komo = standardKomo(C, 1)
+
+    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], final_gripper_pos)
+    komo.addObjective([1.], ry.FS.vectorZ, ["cameraWrist"], ry.OT.eq, [1e1], -new_view/np.linalg.norm(new_view))
+    komo.addObjective([1.], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
+    
+    return moveBlocking(bot, C, komo, velocity, verbose=verbose)
+
 def lookAtObjFromAngle(obj_pos: np.ndarray,
                   bot: ry.BotOp,
                   C: ry.Config,

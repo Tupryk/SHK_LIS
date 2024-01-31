@@ -14,11 +14,8 @@ ON_REAL = False
 ROBOT_VELOCITY = 1. # rad/s
 INITIAL_OBJ_POS = np.array([-.50, -.1, .69])
 
-allowedViewAngleSegments = [[0., np.pi*.25], [.75*np.pi, 1.25*np.pi], [1.75*np.pi, np.pi*2]]
-
 C = setup_config(INITIAL_OBJ_POS, ON_REAL)
 bot = startup_robot(C, ON_REAL)
-visualizeViewAreas(C, INITIAL_OBJ_POS, allowedViewAngleSegments)
 
 TABLE_CENTER = np.array([-.23, -.16, .651])
 TABLE_DIMS = np.array([.89, .55])
@@ -30,6 +27,14 @@ pushArena.plotArena(C, color=[.5, .5, .5])
 
 scanArena = RectangularArena(middleP=TABLE_CENTER, width=TABLE_DIMS[0]+.2, height=TABLE_DIMS[1]+.2, middlePCirc=ROBOT_POS, innerR=ROBOT_RING*.5, name="scanArena")
 scanArena.plotArena(C, color=[1., 1., 1.])
+
+NUMBER_OF_PUSH_TRIALS = 100
+predObjPos = INITIAL_OBJ_POS
+
+pointClouds = [] # Stores the world position of the point cloud and the point cloud {"world_position": [x, y, z], "pc": np.array([])}
+minNumScans = 2 # Minimum nuber of point cloud scans until we start merging them
+fullPC = np.array([])
+maxForces = []
 
 NUMBER_OF_PUSH_TRIALS = 10
 predObjPos = INITIAL_OBJ_POS
@@ -48,8 +53,7 @@ for i in range(NUMBER_OF_PUSH_TRIALS):
 
     lookSuccess = False
     while not lookSuccess:
-        lookAngle = giveRandomAllowedAngle(allowedViewAngleSegments)
-        lookSuccess = lookAtObjFromAngle(predObjPos, bot, C, lookAngle, velocity=ROBOT_VELOCITY, verbose=0)
+        lookSuccess = lookAtObjVectorField(predObjPos, bot, C, velocity=ROBOT_VELOCITY, verbose=0)
         
     predObjPos, pointCloud = getScannedObject(bot, C, scanArena)
     if not len(predObjPos):
@@ -88,6 +92,6 @@ for i in range(NUMBER_OF_PUSH_TRIALS):
             maxForces.append(maxForce)
             break
         print("Failed! :(")
-
+    
 bot.home(C)
 C.view(True)
