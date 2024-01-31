@@ -333,8 +333,8 @@ def point2pointPCR_normal(pcd_files, visualize=False):
 
         # Compute normals for each point cloud
 
-        cloud_to_align.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=.025, max_nn=20))
-        merged_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=.025, max_nn=20))
+        cloud_to_align.estimate_normals()
+        merged_cloud.estimate_normals()
 
         # Perform ICP-Normal registration
         icp_result = o3d.pipelines.registration.registration_icp(
@@ -366,6 +366,7 @@ def standardICP(source, target):
     target, _ = target.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
     source = source.voxel_down_sample(voxel_size=0.001)
     target = target.voxel_down_sample(voxel_size=0.001)
+
     for _ in range(iterations):
         reg_p2p = o3d.pipelines.registration.registration_icp(
                 source, target, threshold, trans_init,
@@ -399,7 +400,7 @@ def ICP_matrix(source, target, iterations=10, threshold=.02, trans_init=np.ident
     source_copy = copy.deepcopy(source)
 
     cumulative_transformation = np.identity(4)
-
+    
     for _ in range(iterations):
         source_filtered, _ = source_copy.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
         target_filtered, _ = target.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
@@ -414,12 +415,36 @@ def ICP_matrix(source, target, iterations=10, threshold=.02, trans_init=np.ident
 
     return cumulative_transformation
 
-def mstorePCR(point_clouds, smoothing=False, verbose=0):
+def ICP_matrix_new(source, target, iterations_list=[10, 20, 30], threshold_list=[0.4, 0.02, 0.01], trans_init=np.identity(4)):
+    source_copy = copy.deepcopy(source)
+    cumulative_transformation = np.identity(4)
+    
+    for iterations, threshold in zip(iterations_list, threshold_list):
+        source_filtered, _ = source_copy.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+        target_filtered, _ = target.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+        source_downsampled = source_filtered.voxel_down_sample(voxel_size=0.001)
+        target_downsampled = target_filtered.voxel_down_sample(voxel_size=0.001)
+        source_downsampled.estimate_normals()
+        target_downsampled.estimate_normals()
+        
+        reg_p2p = o3d.pipelines.registration.registration_icp(
+            source_downsampled, target_downsampled, threshold, trans_init,
+            o3d.pipelines.registration.TransformationEstimationPointToPoint())
+        
+        cumulative_transformation = np.dot(reg_p2p.transformation, cumulative_transformation)
+        source_copy.transform(reg_p2p.transformation)
+    
+    return cumulative_transformation
+
+def mstorePCR(point_clouds, smoothing=False, verbose=0, new=True):
     result = point_clouds[0]
     
     for i in range(len(point_clouds)-1):
         source, target = point_clouds[i+1], point_clouds[i]
-        m = ICP_matrix(source, target)
+        if (new):
+            m = ICP_matrix_new(source, target)
+        else:
+            m = ICP_matrix(source, target)
 
         source.transform(m)
         result += source

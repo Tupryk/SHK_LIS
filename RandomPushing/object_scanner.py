@@ -1,7 +1,7 @@
-from robotic import ry
+import robotic as ry
 import numpy as np
 from config import setup_config, startup_robot
-from visual import getObject, lookAtObj, scanObject, point2pointPCR
+from visual import getObject, lookAtObj, mstorePCR, point2pointPCR_normal, scanObject, point2pointPCR
 from arena import *
 import json
 import open3d as o3d
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     obj_pos = INITIAL_OBJ_POS
 
     # Generate Arena
-    arena = CircularArena(middleP=robot_pos, innerR=None, outerR=.5)
+    arena = CircularArena(middleP=robot_pos, innerR=None, outerR=.35)
     arena.plotArena(C)
 
     # Point towards set initial object position
@@ -66,13 +66,13 @@ if __name__ == "__main__":
 
     print("Splitting and saving completed.")
 
-    pcd_files = [f'point_cloud_{i}.pcd' for i in range(len(scanned_views))]
+    pcd_files = [o3d.io.read_point_cloud(f'data/point_cloud_{i}.pcd') for i in range(len(scanned_views))]
 
-    final_points = point2pointPCR(pcd_files, True)
+    final_points = mstorePCR(pcd_files, False, verbose=1)
 
     pclFrame = C.getFrame("pcl")
-    pclFrame.setPointCloud(np.array(final_points))
-    C.view_recopyMeshes()
+    #pclFrame.setPointCloud(np.array(final_points))
+    #C.view_recopyMeshes()
     
     bot.hold()
     bot.home(C)
