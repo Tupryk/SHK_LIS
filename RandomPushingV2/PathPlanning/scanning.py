@@ -5,52 +5,64 @@ from typing import Tuple, List
 from RobotEnviroment.arenas import Arena
 from RobotEnviroment.robotMovement import moveBlocking
 from PathPlanning.motion import standardKomo
+from utils.raiUtils import createWaypointFrame
 
 
 def giveLookDirectionFromVectorField(obj_pos: np.ndarray,
-                                     pos_mean: np.ndarray=np.array([-.50, -.1]),
-                                     prob_thresh: float=.2) -> np.ndarray:
+                                     pos_mean: np.ndarray=np.array([-.50, -.16]),
+                                     prob_thresh: float=.05,
+                                     verbose: int=0) -> np.ndarray:
 
     vec = pos_mean - obj_pos
     vec_len =  np.linalg.norm(vec)
-    vec /= vec_len
     
     prob = vec_len / prob_thresh
-    prob = 1 if prob > 1 else prob
 
-    if prob == 1: return vec
-    if np.random.random() > prob:
+    if verbose:
+        print("========== Scan direction data ==========")
+        print("obj_pos: ", obj_pos)
+        print("prob: ", prob)
+    if np.random.random() > prob or vec_len == 0:
         rand_angle = np.random.random() * 2*np.pi
+        if verbose:
+            print("Random push type")
+            print("=========================================")
         return np.array([np.cos(rand_angle), np.sin(rand_angle)])
-    return vec
+    
+    if verbose:
+        print("Adjust push type: ", vec)
+    vec /= vec_len
+    if verbose:
+        print("Norm vec: ", vec)
+        print("=========================================")
+    return -vec
 
 def lookAtObjVectorField(obj_pos: np.ndarray,
-                  bot: ry.BotOp,
-                  C: ry.Config,
-                  radialDist: float=.3,
-                  gripperHeight: float=.3,
-                  velocity: float=.2,
-                  verbose: int=0) -> bool:
+                         bot: ry.BotOp,
+                         C: ry.Config,
+                         radialDist: float=.3,
+                         gripperHeight: float=.25,
+                         velocity: float=.2,
+                         verbose: int=0) -> bool:
     
     C.getFrame("predicted_obj").setPosition(obj_pos) # This line should probaly not be in this function.
 
-    look_dir = giveLookDirectionFromVectorField(obj_pos[:2])
+    look_dir = giveLookDirectionFromVectorField(obj_pos[:2], verbose=verbose)
     look_dir *= radialDist
-    new_view = np.array([
-        look_dir[0],
-        look_dir[1],
-        gripperHeight
-    ])
-
-    final_gripper_pos = new_view + obj_pos
 
     komo = standardKomo(C, 1)
 
-    komo.addObjective([1.], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], final_gripper_pos)
-    komo.addObjective([1.], ry.FS.vectorZ, ["cameraWrist"], ry.OT.eq, [1e1], -new_view/np.linalg.norm(new_view))
-    komo.addObjective([1.], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
+    komo.addControlObjective([], 0, 1e1)
+
+    komo.addObjective([1.], ry.FS.position, ["cameraWrist"], ry.OT.eq, [1e1, 1e1, 0], [*look_dir, 0])
+    komo.addObjective([1.], ry.FS.positionRel, ["cameraWrist", "predicted_obj"], ry.OT.ineq, [0 , 0, -1e1], [.0, .0, .2])
+    komo.addObjective([1.], ry.FS.positionRel, ["cameraWrist", "predicted_obj"], ry.OT.ineq, [0, 0, 1e1], [.0, .0, .3])
+    #komo.addObjective([1.], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
+    success = moveBlocking(bot, C, komo, velocity, verbose=verbose)
+
+    C.view(True)
     
-    return moveBlocking(bot, C, komo, velocity, verbose=verbose)
+    return success
 
 def lookAtObjFromAngle(obj_pos: np.ndarray,
                   bot: ry.BotOp,

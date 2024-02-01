@@ -36,7 +36,8 @@ minNumScans = 2 # Minimum nuber of point cloud scans until we start merging them
 fullPC = np.array([])
 maxForces = []
 
-NUMBER_OF_PUSH_TRIALS = 10
+NUMBER_OF_PUSH_TRIALS = 100
+successes = 0
 predObjPos = INITIAL_OBJ_POS
 
 pointClouds = [] # Stores the world position of the point cloud and the point cloud {"world_position": [x, y, z], "pc": np.array([])}
@@ -46,14 +47,9 @@ maxForces = []
 
 for i in range(NUMBER_OF_PUSH_TRIALS):
 
-    print("Starting Trial Number ", i+1)
-
-    # Scan object at it's predicted position and get it's possible push points
-    print("Scanning object...")
-
     lookSuccess = False
     while not lookSuccess:
-        lookSuccess = lookAtObjVectorField(predObjPos, bot, C, velocity=ROBOT_VELOCITY, verbose=0)
+        lookSuccess = lookAtObjVectorField(predObjPos, bot, C, velocity=ROBOT_VELOCITY, verbose=1)
         
     predObjPos, pointCloud = getScannedObject(bot, C, scanArena)
     if not len(predObjPos):
@@ -62,7 +58,6 @@ for i in range(NUMBER_OF_PUSH_TRIALS):
     push_points  = getPushPoints(pointCloud, verbose=0)
 
     # Store the object's point cloud
-    print("Storing point cloud")
     for j, _ in enumerate(pointCloud):
         pointCloud[j] -= predObjPos
     pointClouds.append(pointCloud)
@@ -71,27 +66,25 @@ for i in range(NUMBER_OF_PUSH_TRIALS):
         fullPC = joinOffsetPCS(pointClouds.copy(), verbose=0)
 
     # Try to push object
-    for _ in range(5): # This counts the number of attempts to push an object from the current view angle. If it reaches 5 we try a new angle
+    for _ in range(15): # This counts the number of attempts to push an object from the current view angle. If it reaches 5 we try a new angle
         if not len(push_points):
-            print("No viable push points found!")
             break
 
         pushP = random.choice(push_points)
         # push_points.remove(pushP)
 
-        print("Trying to push obj...")
         waypoints = pushMotionWaypoints(pushP[0], pushP[1], predObjPos, config=C)
         if not pushArena.point_in_arena(waypoints[-1]): # Should automatically generate waypoints that are not outside the push arena but for now we do this
-            print("Generated waypoints outside of arena!")
             continue
 
         success, maxForce = doPushThroughWaypoints(bot, C, waypoints, velocity=ROBOT_VELOCITY, verbose=0)
         if success:
-            print("Success! :)")
+            moveBack(bot, C, velocity=ROBOT_VELOCITY)
             predObjPos = waypoints[-1] # This should be offset by the width of the object!
             maxForces.append(maxForce)
+            success += 1
             break
-        print("Failed! :(")
     
+print(f"{successes}/{NUMBER_OF_PUSH_TRIALS}")
 bot.home(C)
 C.view(True)

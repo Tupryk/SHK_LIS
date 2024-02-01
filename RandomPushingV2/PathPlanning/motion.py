@@ -1,27 +1,27 @@
 import numpy as np
 import robotic as ry
 from typing import Tuple
-from utils.raiUtils import pathMustBeStraight
+from utils.raiUtils import komoStraightPath, createWaypointFrame
 from RobotEnviroment.robotMovement import moveBlocking, moveBlockingAndCheckForce
 
 STANDARD_VELOCITY = .2
 
 
-def standardKomo(C: ry.Config, phases: int, slicesPerPhase: int=20) -> ry.KOMO:
+def standardKomo(C: ry.Config, phases: int, slicesPerPhase: int=20, enableCollisions: bool=True) -> ry.KOMO:
 
     q_now = C.getJointState()
 
     komo = ry.KOMO()
-    komo.setConfig(C, True)
+    komo.setConfig(C, enableCollisions)
 
     komo.setTiming(phases, slicesPerPhase, 1., 2)
 
-    # komo.addControlObjective([], 0, 1e-2)
     komo.addControlObjective([], 1, 1e-1)
     komo.addControlObjective([], 2, 1e1)
 
     komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
-    komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
+    if enableCollisions:
+        komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
     komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_now)
 
     komo.addObjective([phases], ry.FS.qItself, [], ry.OT.eq, [10.], [], 1)
@@ -50,7 +50,7 @@ def pushMotionWaypoints(point: np.ndarray,
                         normal: np.ndarray,
                         robot_pos: np.ndarray,
                         start_dist: float=.15,
-                        end_dist_range: [float]=[.1, .15],
+                        end_dist_range: [float]=[.01, .05],
                         initial_elevation: float=.15,
                         config: ry.Config=None,
                         minHeight: float=.7) -> [np.ndarray]:
@@ -85,66 +85,68 @@ def pushMotionWaypoints(point: np.ndarray,
     return waypoints
 
 
-def specialPush(bot: ry.BotOp,
-                C: ry.Config,
-                direction: np.ndarray,
-                velocity: float=STANDARD_VELOCITY,
-                verbose: int=0) -> Tuple[bool, float]:
-    
-    """
-    Creates a motion problem using "waypoint engineering" approach: define waypoints and motion relative to these
-    - We assume the direction vector is normalised.
-    """
-    komo = standardKomo(C, 2)
-
-    mat = np.eye(3) - np.outer(direction, direction)
-
-    komo.addObjective([0, 1], ry.FS.negDistance, ['l_gripper', 'pushWayPoint'], ry.OT.ineq, [1], [-.1])
-    komo.addObjective([1], ry.FS.positionDiff, ['l_gripper', 'startWayPoint'], ry.OT.eq, [1e1])
-    komo.addObjective([1, 2], ry.FS.positionDiff, ['l_gripper', 'startWayPoint'], ry.OT.eq, mat)
-
-    komo.addObjective([2], ry.FS.positionDiff, ['l_gripper', 'endWayPoint'], ry.OT.eq, [1e1])
-
-    komo.addObjective([2], ry.FS.qItself, [], ry.OT.eq, [1e1], [], 1) # No motion derivative of q vector ergo the velocity = 0
-
-    komo.addObjective([1, 2], ry.FS.vectorX, ['l_gripper'], ry.OT.eq, direction.reshape(1, 3))
-    komo.addObjective([1, 2], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1], -direction)
-
-    # komo.addObjective([1, 2], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.]) # Don't squish camera onto table
-
-    success, maxForce = moveBlockingAndCheckForce(bot, C, komo, velocity, verbose=verbose)
-
-    return success, maxForce
-
-
 def doPushThroughWaypoints(bot: ry.BotOp,
                            C: ry.Config,
                            waypoints: [np.ndarray],
-                           velocity: float=.2,
+                           velocity: float=STANDARD_VELOCITY,
                            verbose: int=0) -> Tuple[bool, float]:
-    
-    # Calculate gripper direction
-    gripper_dir = waypoints[-1]-waypoints[1]
-    gripper_dir /= np.linalg.norm(gripper_dir)
-    # Gripper should be at a 45 degree angle with respect to the table.
-    gripper_dir[2] = -np.sqrt(2)
-    gripper_dir /= np.linalg.norm(gripper_dir)
-    gripper_dir *= -1
+
+    createWaypointFrame(C, "start_push", waypoints[1])
+    createWaypointFrame(C, "end_push", waypoints[2])
 
     # Define the komo problem
-    komo = standardKomo(C, 4)
+    komo = standardKomo(C, 5, enableCollisions=False)
 
-    komo.addObjective([1., 4], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], gripper_dir)
+    y_vector_dir = waypoints[2] - waypoints[1]
+    y_vector_dir /= np.linalg.norm(y_vector_dir)
+    komo.addObjective([1., 4], ry.FS.vectorY, ['l_gripper'], ry.OT.eq, [1e1], y_vector_dir)
+    komo.addObjective([1., 4], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], [0, 0, 1])
     komo.addObjective([1., 4], ry.FS.scalarProductXZ, ['l_gripper', 'table'], ry.OT.eq, [1e1], [0.])
     komo.addObjective([1., 4], ry.FS.scalarProductYZ, ['l_gripper', 'table'], ry.OT.ineq, [-1e1], [0.])
 
     komo.addObjective([2], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], waypoints[0])
 
-    komo = pathMustBeStraight(C, komo, points=[waypoints[1], waypoints[2]], phases=[3, 4])
+    komo = komoStraightPath(C, komo, ["start_push", "end_push"], phases=[3, 4])
 
     # Execute motion if possible
     success, maxForce = moveBlockingAndCheckForce(bot, C, komo, velocity, verbose=verbose)
     return success, maxForce
+
+
+def moveBack(bot: ry.BotOp, C: ry.Config, how_much: float=.1, dir: str="y", velocity: float=STANDARD_VELOCITY, verbose: int=0) -> bool:
+    """
+    Move in the direction of the y vector of the gripper by "how_much" in a straight line
+    """
+
+    # Create waypoint frames
+    initial_gripper_pos = C.getFrame("l_gripper").getPosition()
+    initial_gripper_rot = C.getFrame("l_gripper").getQuaternion()
+    start_frame = C.addFrame("retreat_start_pos") \
+        .setShape(ry.ST.sphere, size=[.01, .01]) \
+        .setQuaternion(initial_gripper_rot) \
+        .setPosition(initial_gripper_pos)
+
+    end_frame = C.addFrame("retreat_end_pos", "retreat_start_pos") \
+        .setShape(ry.ST.sphere, size=[.01, .01]) \
+        .setColor([1, 1, 0])
+    
+    # Set movement direction
+    if dir == "y":
+        end_frame_rel_pos = np.array([.0, -how_much, .0])
+    elif dir == "z":
+        end_frame_rel_pos = np.array([.0, .0, how_much])
+    else:
+        raise Exception(f"Value '{dir}' is not a valid retreat direction!")
+    
+    end_frame.setRelativePosition(end_frame_rel_pos)
+    
+    # Define komo
+    komo = standardKomo(C, 1, enableCollisions=False)
+    komo = komoStraightPath(C, komo, ["retreat_start_pos", "retreat_end_pos"], phases=[0, 1])
+
+    # Move
+    success = moveBlocking(bot, C, komo, velocity, verbose=verbose)
+    return success
 
 
 def pokePoint(bot: ry.BotOp,
@@ -196,53 +198,3 @@ def pokePoint(bot: ry.BotOp,
         return False, .0
 
     return True, resultingForce
-
-
-def straightPush(bot: ry.BotOp,
-                C: ry.Config,
-                start: np.ndarray,
-                obj_pos: np.ndarray,
-                end: np.ndarray,
-                velocity: float=.2,
-                verbose: int=0) -> bool:
-    
-    # Calculate gripper direction
-    gripper_dir = end-start
-    gripper_dir /= np.linalg.norm(gripper_dir)
-    gripper_dir *= -1.
-
-
-    # Define the komo problem
-    komo = ry.KOMO()
-    komo.setConfig(C, True)
-    komo.setTiming(2., 20, 1., 1)
-
-    komo.addControlObjective([], 1, 1e1)
-    # komo.addControlObjective([], 2, 1e1)
-
-    komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
-    komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
-
-    komo.addObjective([1., 2.], ry.FS.vectorY, ['l_gripper'], ry.OT.eq, [1e1], gripper_dir)
-    komo.addObjective([1., 2.], ry.FS.vectorZ, ['l_gripper'], ry.OT.eq, [1e1], [0., 0., 1.])
-
-    komo.addObjective([1., 2.], ry.FS.distance, ["l_gripper", "start"], ry.OT.sos, [1e1])
-    komo.addObjective([1., 2.], ry.FS.distance, ["l_gripper", "end"], ry.OT.sos, [1e1])
-
-    # komo.addObjective([1., 2.], ry.FS.distance, ["l_gripper", "predicted_obj"], ry.OT.sos, [1e2])
-    delta = end-start
-    delta /= np.linalg.norm(delta, 2)
-
-
-    komo.addObjective([1,2], ry.FS.positionDiff, ['l_gripper', "start"], ry.OT.eq, (np.eye(3)-np.outer(delta,delta)))
-
-    # komo.addObjective([1.5], ry.FS.position, ['l_gripper'], ry.OT.eq, [1e1], obj_pos)
-
-    komo.addObjective([1.], ry.FS.positionDiff, ['l_gripper', "start"], ry.OT.eq, [1e1])
-    komo.addObjective([2.], ry.FS.positionDiff, ['l_gripper', "end"], ry.OT.eq, [1e1])
-
-    komo.addObjective([2], ry.FS.qItself, [], ry.OT.eq, [1e1], [], 1)
-
-    # Execute motion if possible
-    success = moveBlocking(bot, C, komo, velocity, verbose=verbose)
-    return success

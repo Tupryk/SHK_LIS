@@ -21,7 +21,8 @@ def moveBlocking(bot: ry.BotOp, C: ry.Config, komo: ry.KOMO, velocity: float, ve
 
         return True
     
-    print("Error while executing robot movement!")
+    if verbose:
+        print("Error while executing robot movement!")
     return False
 
     
@@ -59,5 +60,6 @@ def moveBlockingAndCheckForce(
         
         return True, max_force
     
-    print("Error while executing robot movement!")
+    if verbose:
+        print("Error while executing robot movement!")
     return False, 0.
