@@ -81,3 +81,27 @@ def basicKomo(C: ry.Config, phases: int=1, enableCollisions: bool=True) -> ry.KO
         komo.addObjective([phases], ry.FS.qItself, [], ry.OT.eq, [10.], [], 1)
         
         return komo
+
+def plotLine(C: ry.Config,
+             start: np.ndarray,
+             end: np.ndarray,
+             name: str="line",
+             resolution: float=10.,
+             color: [float]=[1., 0., 0.]):
+
+    seg = end-start
+    line_len = np.linalg.norm(seg)
+    segsize = line_len / resolution
+    seg /= line_len
+    seg *= segsize
+
+    for p in range(resolution+1):
+        position = start + (seg * p)
+        frame = C.getFrame(f"{name}_{p}")
+        if not frame:
+            C.addFrame(f"{name}_{p}") \
+                .setPosition(position) \
+                .setShape(ry.ST.sphere, size=[.02]) \
+                .setColor(color)
+        else:
+            frame.setPosition(position)

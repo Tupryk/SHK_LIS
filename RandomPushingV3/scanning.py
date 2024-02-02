@@ -43,7 +43,7 @@ def getFilteredPointCloud(bot: ry.BotOp,
     objectpoints=[]
     colors = []
     for i, p in enumerate(points):
-        if p[2] > (z_cutoff) and arena.point_in_arena(np.array(p)):
+        if p[2] > (z_cutoff) and arena.isPointInside(np.array(p)):
             objectpoints.append(p)
             colors.append(rgb[i])
 

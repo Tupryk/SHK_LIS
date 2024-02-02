@@ -1,3 +1,4 @@
+import json
 import numpy as np
 import robotic as ry
 from typing import Tuple
@@ -22,11 +23,16 @@ class Robot():
         self.komo = None
         self.arena = None
         self.max_velocity = max_velocity
+        self.on_real = real_robot
 
         """
         Push attempts stores the following data after each push:
             {
                 success: bool
+                q: [[float]]
+                startMidpoint: [float]
+                endMidpoint: [float]
+                tauExternal: [[float]]
                 forces: [float]
             }
         """
@@ -34,16 +40,15 @@ class Robot():
 
         createWaypointFrame(self.C, "predicted_obj", initial_object_position)
 
-        TABLE_CENTER = np.array([-.23, -.16, .651])
-        TABLE_DIMS = np.array([.89, .55])
-        ROBOT_POS = np.array([-.03, -.24, .651])
-        ROBOT_RING = .29
+        arena_pos = initial_object_position.copy()
+        arena_pos[2] = .651
+        arena_dims = np.array([.15, .3])
 
-        self.push_arena = RectangularArena(middleP=TABLE_CENTER, width=TABLE_DIMS[0]*.8, height=TABLE_DIMS[1]*.8, middlePCirc=ROBOT_POS, innerR=ROBOT_RING, name="pushArena")
-        self.push_arena.plotArena(self.C, color=[.5, .5, .5])
+        self.push_arena = RectangularArena(arena_pos, width=arena_dims[0], height=arena_dims[1], name="pushArena")
+        self.push_arena.display(self.C, color=[.5, .5, .5])
 
-        self.scan_arena = RectangularArena(middleP=TABLE_CENTER, width=TABLE_DIMS[0]+.2, height=TABLE_DIMS[1]+.2, middlePCirc=ROBOT_POS, innerR=ROBOT_RING*.5, name="scanArena")
-        self.scan_arena.plotArena(self.C, color=[1., 1., 1.])
+        self.scan_arena = RectangularArena(arena_pos, width=arena_dims[0]+.2, height=arena_dims[1]+.2, name="scanArena")
+        self.scan_arena.display(self.C, color=[1., 1., 1.])
 
 
     def updateObjectPosition(self):
@@ -67,7 +72,7 @@ class Robot():
         self.C.getFrame("predicted_obj").setPosition(mid_point)
 
 
-    def pushObject(self, objective: np.ndarray=np.array([]), start_distance: float=.2):
+    def pushObject(self, objective: np.ndarray=np.array([]), start_distance: float=.1):
         """
         Move through the predicted position of the object in a straight line
         in the direction of a random point in the playing field (or arena).
@@ -83,9 +88,7 @@ class Robot():
 
         # If there is no objective specified generate one from the arena
         if not len(objective):
-            objective = self.push_arena.randomPointInArena()
-            while self.push_arena.point_in_inner_circ(objective, self.push_arena.middlePCirc, self.push_arena.innerR): # This repetition could be made better
-                objective = self.push_arena.randomPointInArena()
+            objective = self.push_arena.randomPointInside()
 
         objective[2] = obj_pos[2]
         
@@ -103,7 +106,7 @@ class Robot():
         createWaypointFrame(self.C, "push_end", objective)
 
         ### Define the motion problem and solve it if possible
-        self.komo: ry.KOMO = basicKomo(self.C, phases=3, enableCollisions=False)
+        self.komo: ry.KOMO = basicKomo(self.C, phases=3, enableCollisions=self.on_real)
 
         # Get the gripper into it's correct rotation
         self.komo.addObjective([1, 3], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0., 0., 1.])
@@ -115,12 +118,14 @@ class Robot():
         self.komo = komoStraightPath(self.C, self.komo, ["push_start", "push_end"], phases=[2, 3], gotoPoints=False)
         self.komo.addObjective([3], ry.FS.positionDiff, ["l_gripper", "push_end"], ry.OT.eq, [1e1])
 
-        success = self.moveBlockingAndCheckForce()
+        success, _ = self.moveBlockingAndCheckForce()
 
         ### If the push motion was successful move back a bit
         if success:
             self.C.getFrame("predicted_obj").setPosition(objective)
             self.moveBack()
+
+        return success
 
 
     def moveBack(self, how_much: float=.1, dir: str="y"):
@@ -155,20 +160,21 @@ class Robot():
         self.komo = komoStraightPath(self.C, self.komo, ["retreat_start_pos", "retreat_end_pos"], phases=[0, 1])
 
         # Move
-        print(self.moveBlocking())
+        self.moveBlocking()
 
     def displayResults(self, index_of_push_attempt_to_plot: int=-1):
         """
         While pushing some data gets stored like the forces ejected on
         the gripper and if the push was executed correctly.
         """
+        json.dump(self.push_attempts, open("push_data.json", "w"))
         success_count = len([pa["success"] for pa in self.push_attempts if pa["success"]])
         total_attempts = len(self.push_attempts)
         perc = success_count / total_attempts * 100
         print(f"Succeded in {success_count} of {total_attempts} push attempts ({perc:.2f}%).")
 
         if self.push_attempts[index_of_push_attempt_to_plot]["success"]:
-            forces = [f for f in self.push_attempts["forces"]]
+            forces = [f for f in self.push_attempts[index_of_push_attempt_to_plot]["forces"]]
             plt.plot(forces)
             plt.show()
 
@@ -230,10 +236,11 @@ class Robot():
                 
                 # Measure force on the direction of the Y vector of the gripper
                 y, J = self.C.eval(ry.FS.position, ['l_gripper'], [[0, 1, 0]])
+                J = np.linalg.pinv(J.T)
                 F = np.abs(J @ self.bot.get_tauExternal())
                 
                 # Store measured force
-                forces.append(F)
+                forces.append(F[0])
                 max_force = F if F > max_force else max_force
                 if max_force > maxForceAllowed:
                     print("Max force exceeded!")
