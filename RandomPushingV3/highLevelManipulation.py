@@ -1,8 +1,8 @@
 import json
+import time
 import numpy as np
 import robotic as ry
 from typing import Tuple
-import matplotlib.pyplot as plt
 from arenas import RectangularArena
 from scanning import getScannedObject
 from raiUtils import (createWaypointFrame,
@@ -25,24 +25,11 @@ class Robot():
         self.max_velocity = max_velocity
         self.on_real = real_robot
 
-        """
-        Push attempts stores the following data after each push:
-            {
-                success: bool
-                q: [[float]]
-                startMidpoint: [float]
-                endMidpoint: [float]
-                tauExternal: [[float]]
-                forces: [float]
-            }
-        """
-        self.push_attempts = []
-
         createWaypointFrame(self.C, "predicted_obj", initial_object_position)
 
         arena_pos = initial_object_position.copy()
         arena_pos[2] = .651
-        arena_dims = np.array([.15, .3])
+        arena_dims = np.array([.25, .30])
 
         self.push_arena = RectangularArena(arena_pos, width=arena_dims[0], height=arena_dims[1], name="pushArena")
         self.push_arena.display(self.C, color=[.5, .5, .5])
@@ -61,6 +48,7 @@ class Robot():
         
         ### Look towards the object (for now from a non specified angle)
         self.komo = basicKomo(self.C)
+        self.komo.addControlObjective([], 0, .1)
         self.komo.addObjective([1.], ry.FS.positionRel, ["predicted_obj", "cameraWrist"], ry.OT.eq, [1e1], [.0, .0, .4])
         self.moveBlocking()
 
@@ -72,7 +60,7 @@ class Robot():
         self.C.getFrame("predicted_obj").setPosition(mid_point)
 
 
-    def pushObject(self, objective: np.ndarray=np.array([]), start_distance: float=.1):
+    def pushObject(self, objective: np.ndarray=np.array([]), start_distance: float=.1, save_as: str=""):
         """
         Move through the predicted position of the object in a straight line
         in the direction of a random point in the playing field (or arena).
@@ -81,6 +69,8 @@ class Robot():
         This fuction will also update the predicted position of the object,
         setting it equal to the end position of the gripper in the push
         motion.
+
+        TODO: start_distance should be dependent on the object#s dimensions
         """
 
         ### First define the start and end waypoints
@@ -118,7 +108,22 @@ class Robot():
         self.komo = komoStraightPath(self.C, self.komo, ["push_start", "push_end"], phases=[2, 3], gotoPoints=False)
         self.komo.addObjective([3], ry.FS.positionDiff, ["l_gripper", "push_end"], ry.OT.eq, [1e1])
 
-        success, _ = self.moveBlockingAndCheckForce()
+        success, external_taus, join_states = self.moveBlockingAndCheckForce()
+
+        # Should put data saving in a sepparate function
+        if len(save_as):
+            push_attempt = {
+                "success": success,
+                "objectPosition": obj_pos.tolist()
+            }
+            if success:
+                push_attempt["tauExternal"] = external_taus
+                push_attempt["jointStates"] = join_states
+            else:
+                push_attempt["currentState"] = self.C.getJointState().tolist()
+                push_attempt["objective"] = objective.tolist()
+            
+            json.dump(push_attempt, open(save_as, "w"))
 
         ### If the push motion was successful move back a bit
         if success:
@@ -162,22 +167,6 @@ class Robot():
         # Move
         self.moveBlocking()
 
-    def displayResults(self, index_of_push_attempt_to_plot: int=-1):
-        """
-        While pushing some data gets stored like the forces ejected on
-        the gripper and if the push was executed correctly.
-        """
-        json.dump(self.push_attempts, open("push_data.json", "w"))
-        success_count = len([pa["success"] for pa in self.push_attempts if pa["success"]])
-        total_attempts = len(self.push_attempts)
-        perc = success_count / total_attempts * 100
-        print(f"Succeded in {success_count} of {total_attempts} push attempts ({perc:.2f}%).")
-
-        if self.push_attempts[index_of_push_attempt_to_plot]["success"]:
-            forces = [f for f in self.push_attempts[index_of_push_attempt_to_plot]["forces"]]
-            plt.plot(forces)
-            plt.show()
-
 
     """
     The following two functions (moveBlocking and moveBlockingAndCheckForce)
@@ -208,7 +197,7 @@ class Robot():
         
     def moveBlockingAndCheckForce(self,
                                   maxForceAllowed: float=np.nan,
-                                  verbose: int=0) -> Tuple[bool, float]:
+                                  verbose: int=0) -> Tuple[bool, list, list]:
         
         """
         Unlike moveBlocking, this function also measures the forces applied
@@ -223,30 +212,41 @@ class Robot():
         if verbose: print(ret)
         if verbose > 1 and ret.feasible: self.komo.view(True)
 
+        # Prepare lists to store data
         max_force = -np.inf
-        forces = []
+        joint_states = []
+        external_taus = []
+
         movement_possible = bool(ret.feasible)
         if movement_possible:
             
             self.bot.moveAutoTimed(self.komo.getPath(), self.max_velocity)
 
+            tic_time = time.monotonic()
             while self.bot.getTimeToEnd() > 0:
-                
-                self.bot.sync(self.C, .1)
+
+                tic_time += .1
+                now_time = time.monotonic()
+                if tic_time > now_time:
+                    time.sleep(tic_time - now_time)
                 
                 # Measure force on the direction of the Y vector of the gripper
                 y, J = self.C.eval(ry.FS.position, ['l_gripper'], [[0, 1, 0]])
                 J = np.linalg.pinv(J.T)
-                F = np.abs(J @ self.bot.get_tauExternal())
+                tauExternal = self.bot.get_tauExternal()
+                F = np.abs(J @ tauExternal)
                 
-                # Store measured force
-                forces.append(F[0])
+                # Store measuremets and positions
+                joint_states.append(self.bot.get_q().tolist())
+                external_taus.append(tauExternal.tolist())
+
+                # Check if max force is exceeded
                 max_force = F if F > max_force else max_force
                 if max_force > maxForceAllowed:
                     print("Max force exceeded!")
                     break
             
             if verbose: print("Max force enacted: ", max_force)
-        
-        self.push_attempts.append({"success": movement_possible, "forces": forces})
-        return movement_possible, max_force
+            self.bot.sync(self.C)
+
+        return movement_possible, external_taus, joint_states

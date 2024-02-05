@@ -28,7 +28,8 @@ def createWaypointFrame(C: ry.Config, name: str, position: np.ndarray, color: [f
     way = C.getFrame(name)
     if not way:
         way = C.addFrame(name) \
-            .setShape(ry.ST.sphere, size=[.01, .002])
+            .setShape(ry.ST.sphere, size=[.01, .002]) \
+            .setContact(False)
     way.setPosition(position).setColor(color)
     return way
 
@@ -69,8 +70,8 @@ def basicKomo(C: ry.Config, phases: int=1, enableCollisions: bool=True) -> ry.KO
         komo.setConfig(C, enableCollisions)
         komo.setTiming(phases, 20, 1., 2)
 
-        komo.addControlObjective([], 1, 1)
-        komo.addControlObjective([], 2, 1)
+        komo.addControlObjective([], 1, 1e-1)
+        komo.addControlObjective([], 2, 1e0)
 
         if enableCollisions:
             komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq)
