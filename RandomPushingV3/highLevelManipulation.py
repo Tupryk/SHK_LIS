@@ -207,19 +207,29 @@ class Robot():
 
             self.gripperClose()
 
+            if success:
+                self.moveBack(dir="z")
+
             return success
         
         print("No feasible grasp angle.")
         return False
     
 
-    def placeObject(self, end_position: np.ndarray, x_orientation: str="x") -> bool:
+    def placeObject(self, end_position: np.ndarray=np.array([]), x_orientation: str="x") -> bool:
+
+        # If no position is specified we place the object at a random spot in the arena.
+        if not len(end_position):
+            end_position = self.push_arena.randomPointInside()
 
         gripper_end_position = np.array([end_position[0], end_position[1], 0.])
         gripper_end_position[2] = self.obj_dims[2] + self.table_height - self.gripper_z_depth
 
         success = self.placeGraspMotion(gripper_end_position, x_orientation)
         self.gripperOpen()
+
+        if success:
+            self.moveBack(dir="z")
 
         return success
 
