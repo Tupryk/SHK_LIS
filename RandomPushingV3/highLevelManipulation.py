@@ -157,6 +157,7 @@ class Robot():
 
         self.komo.addObjective([1, 2], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0., 0., 1.])
         self.komo = komoStraightPath(self.C, self.komo, ["grasp_start_pos", "grasp_end_pos"])
+        self.komo.addObjective([], ry.FS.position, ["l_gripper"], ry.OT.ineq, [0., 0., -1.], end_position[2])
 
         # If no orientation of the gripper is specified we try both options
         if x_orientation == "x":

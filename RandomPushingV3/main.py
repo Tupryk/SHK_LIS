@@ -13,14 +13,12 @@ for i in range(push_attempts):
     robot.goHome()
 
     # Randomly choose to grasp or push
-    if np.random.random() > .5:
+    if np.random.choice([0, 1]):
         # Try to calculate push motions in different directions until you find a feasible push motion
         while not robot.pushObject():
             pass
     else:
         robot.graspObject()
-        robot.placeObject()
-
-
+        robot.placeObject(x_orientation=np.random.choice(["x", "y"]))
 
     print("Achieved push number ", i+1)
