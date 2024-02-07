@@ -148,28 +148,45 @@ class Robot():
         return success
     
 
-    def graspObject(self, x_orientation: str="", place: bool=False) -> bool:
-        """
-        We can get a rough estimate of the objects dimensions through the point cloud.
-        With this information we try to find a feasible grasp with the gripper z vector
-        perpendicular to the table/floor.
-        """
+    def placeGraspMotion(self, end_position: np.ndarray, x_orientation: str) -> bool:
 
-        if not place:
-            self.gripperOpen()
-            
-        # If the arm is exerting too much force the orientation of the gripper is probably invalid and we must stop
-
-        gripper_end_position = self.obj_pos
-        gripper_end_position[2] = self.obj_dims[2] + self.table_height - self.gripper_z_depth
-
-        createWaypointFrame(self.C, "grasp_start_pos", gripper_end_position + np.array([0, 0, .1]))
-        createWaypointFrame(self.C, "grasp_end_pos", gripper_end_position)
+        createWaypointFrame(self.C, "grasp_start_pos", end_position + np.array([0, 0, .1]))
+        createWaypointFrame(self.C, "grasp_end_pos", end_position)
 
         self.komo: ry.KOMO = basicKomo(self.C, phases=2, enableCollisions=self.on_real)
 
         self.komo.addObjective([1, 2], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0., 0., 1.])
         self.komo = komoStraightPath(self.C, self.komo, ["grasp_start_pos", "grasp_end_pos"])
+
+        # If no orientation of the gripper is specified we try both options
+        if x_orientation == "x":
+            self.komo.addObjective([1, 2], ry.FS.vectorX, ["l_gripper"], ry.OT.eq, [1e1], [1., 0., 0.])
+        elif x_orientation == "y":
+            self.komo.addObjective([1, 2], ry.FS.vectorX, ["l_gripper"], ry.OT.eq, [1e1], [0., 1., 0.])
+        else:
+            raise Exception(f"Value '{x_orientation}' is not a valid grasp direction!")
+
+        success = self.moveBlocking()
+
+        self.gripperClose()
+
+        return success
+
+
+    def graspObject(self, x_orientation: str="") -> bool:
+        """
+        We can get a rough estimate of the objects dimensions through the point cloud.
+        With this information we try to find a feasible grasp with the gripper z vector
+        perpendicular to the table/floor.
+        TODO: Make this work for more than just x and y angles.
+        """
+
+        self.gripperOpen()
+            
+        # If the arm is exerting too much force the orientation of the gripper is probably invalid and we must stop
+
+        gripper_end_position = self.obj_pos
+        gripper_end_position[2] = self.obj_dims[2] + self.table_height - self.gripper_z_depth
 
         # If no orientation of the gripper is specified we try both options
         x_orientation = ["x", "y"] if not len(x_orientation) else [x_orientation]
@@ -178,25 +195,33 @@ class Robot():
             if orien == "x":
                 if self.obj_dims[0] > self.gripperWidth:
                     continue
-                self.komo.addObjective([1, 2], ry.FS.vectorX, ["l_gripper"], ry.OT.eq, [1e1], [1., 0., 0.])
+                success = self.placeGraspMotion(gripper_end_position, "x")
+            
             elif orien == "y":
                 if self.obj_dims[1] > self.gripperWidth:
                     continue
-                self.komo.addObjective([1, 2], ry.FS.vectorX, ["l_gripper"], ry.OT.eq, [1e1], [0., 1., 0.])
+                success = self.placeGraspMotion(gripper_end_position, "y")
+            
             else:
                 raise Exception(f"Value '{orien}' is not a valid grasp direction!")
 
-            success, _, _ = self.moveBlockingAndCheckForce()
-
-            if place:
-                self.gripperOpen()
-            else:
-                self.gripperClose()
+            self.gripperClose()
 
             return success
         
         print("No feasible grasp angle.")
         return False
+    
+
+    def placeObject(self, end_position: np.ndarray, x_orientation: str="x") -> bool:
+
+        gripper_end_position = np.array([end_position[0], end_position[1], 0.])
+        gripper_end_position[2] = self.obj_dims[2] + self.table_height - self.gripper_z_depth
+
+        success = self.placeGraspMotion(gripper_end_position, x_orientation)
+        self.gripperOpen()
+
+        return success
 
 
     def moveBack(self, how_much: float=.1, dir: str="y"):

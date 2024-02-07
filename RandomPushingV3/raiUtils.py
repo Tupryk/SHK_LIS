@@ -43,7 +43,7 @@ def setupConfig(on_real: bool=False,
     if not on_real:
         C.addFrame('obj') \
             .setPosition(obj_pos) \
-            .setShape(ry.ST.ssBox, [.1, .1, .1, 0]) \
+            .setShape(ry.ST.ssBox, [.05, .05, .05, 0]) \
             .setColor([1, .5, 0]) \
             .setMass(.1)
     

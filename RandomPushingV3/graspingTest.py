@@ -1,6 +1,7 @@
+import numpy as np
 from highLevelManipulation import Robot
 
-robot = Robot(real_robot=True)
+robot = Robot(real_robot=False)
 
 robot.updateObjectPosition()
 
@@ -11,6 +12,6 @@ robot.graspObject()
 
 robot.moveBack(dir="z")
 
-robot.graspObject(place=True)
+robot.placeObject(np.array([-.5, -.2]))
 
 robot.moveBack(dir="z")
