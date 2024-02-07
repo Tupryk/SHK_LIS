@@ -9,10 +9,10 @@ for i in range(push_attempts):
     robot.updateObjectPosition()
 
     # Starting from home makes push calculation easier
-    robot.goHome()
+    robot.bot.home(robot.C)
 
     # Try to calculate push motions in different directions until you find a feasible push motion
-    while not robot.pushObject(save_as=f"./push_attempt_{i+1+213}.json"):
+    while not robot.pushObject(save_as=f"./data/push_attempt_{i+1+213}.json"):
         pass
 
     print("Achieved push number ", i+1)
