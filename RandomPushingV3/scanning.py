@@ -82,6 +82,8 @@ def getScannedObject(bot: ry.BotOp,
     min_coor, max_coor = getPointsMinMaxCoors(points)
 
     midpoint = (max_coor+min_coor)/2
+
+    dims = max_coor-min_coor
     
     if visuals:
         pclFrame = C.getFrame("pcl")
@@ -101,4 +103,4 @@ def getScannedObject(bot: ry.BotOp,
             C.getFrame('mid_point') \
                 .setPosition(midpoint)
     
-    return midpoint, points
+    return midpoint, points, dims
