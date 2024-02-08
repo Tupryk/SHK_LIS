@@ -4,14 +4,13 @@
 #include <pcl/registration/icp.h>
 #include <pcl/visualization/cloud_viewer.h>
 
-
 int main()
 {
     // Load point cloud data from files
     std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> clouds;
 
     // Load point cloud data from files
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < 2; ++i)
     {
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
         std::string filename = "../data/point_cloud_" + std::to_string(i) + ".pcd";
@@ -23,7 +22,6 @@ int main()
         std::cout << "Loaded " << cloud->size() << " data points from " << filename << std::endl;
         clouds.push_back(cloud);
     }
-
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr result_cloud(new pcl::PointCloud<pcl::PointXYZ>); // Initialize result cloud with the first input cloud
     *result_cloud = *clouds[0];
@@ -38,6 +36,9 @@ int main()
         pcl::PointCloud<pcl::PointXYZ>::Ptr aligned_cloud(new pcl::PointCloud<pcl::PointXYZ>);
         icp.align(*aligned_cloud);
 
+        std::cout << "Final transformation matrix:\n"
+                  << icp.getFinalTransformation() << std::endl;
+
         std::cout << "Pair " << i << " registration has converged: " << icp.hasConverged()
                   << " score: " << icp.getFitnessScore() << std::endl;
 
@@ -46,5 +47,9 @@ int main()
 
     pcl::io::savePCDFileASCII("../data/result_cloud.pcd", *result_cloud);
 
-    return (0);
+    pcl::visualization::CloudViewer viewer("Result");
+    viewer.showCloud(result_cloud);
+    while (!viewer.wasStopped()) {}
+
+    return 0;
 }
