@@ -1,0 +1,10 @@
+To push:
+- Removed import random as it is not used
+- Fixed undefined variable in grasp_box
+
+Suggestions:
+- Gripper should have a default value (Maybe even be a class variable althougt this could be weird for two robots)
+- Add typing
+- Change grasp_top_box function name
+- Helpers should be defined automatically
+- Solve the self.rrt thing
