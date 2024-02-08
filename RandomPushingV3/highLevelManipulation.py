@@ -143,6 +143,7 @@ class Robot():
         ### If the push motion was successful move back a bit
         if success:
             self.C.getFrame("predicted_obj").setPosition(push_end_position)
+            self.obj_pos = push_end_position
             self.moveBack()
 
         return success
@@ -151,25 +152,25 @@ class Robot():
     def placeGraspMotion(self, end_position: np.ndarray, x_orientation: str) -> bool:
 
         createWaypointFrame(self.C, "grasp_start_pos", end_position + np.array([0, 0, .1]))
+        createWaypointFrame(self.C, "grasp_mid_pos", end_position + np.array([0, 0, .05])) # This avoids getting too close to the object
         createWaypointFrame(self.C, "grasp_end_pos", end_position)
 
-        self.komo: ry.KOMO = basicKomo(self.C, phases=2, enableCollisions=self.on_real)
-
-        self.komo.addObjective([1, 2], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0., 0., 1.])
-        self.komo = komoStraightPath(self.C, self.komo, ["grasp_start_pos", "grasp_end_pos"])
-        self.komo.addObjective([], ry.FS.position, ["l_gripper"], ry.OT.ineq, [0., 0., -1.], end_position[2])
+        self.komo: ry.KOMO = basicKomo(self.C, phases=3, enableCollisions=self.on_real)
+        
+        self.komo.addObjective([1, 3], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0., 0., 1.])
+        self.komo = komoStraightPath(self.C, self.komo, ["grasp_start_pos", "grasp_mid_pos"])
+        self.komo.addObjective([], ry.FS.position, ["l_gripper"], ry.OT.ineq, [0., 0., -100.], end_position[2])
+        self.komo.addObjective([3], ry.FS.positionDiff, ["l_gripper", "grasp_end_pos"], ry.OT.eq, [1e1])
 
         # If no orientation of the gripper is specified we try both options
         if x_orientation == "x":
-            self.komo.addObjective([1, 2], ry.FS.vectorX, ["l_gripper"], ry.OT.eq, [1e1], [1., 0., 0.])
+            self.komo.addObjective([1, 3], ry.FS.vectorX, ["l_gripper"], ry.OT.eq, [1e1], [1., 0., 0.])
         elif x_orientation == "y":
-            self.komo.addObjective([1, 2], ry.FS.vectorX, ["l_gripper"], ry.OT.eq, [1e1], [0., 1., 0.])
+            self.komo.addObjective([1, 3], ry.FS.vectorX, ["l_gripper"], ry.OT.eq, [1e1], [0., 1., 0.])
         else:
             raise Exception(f"Value '{x_orientation}' is not a valid grasp direction!")
 
         success = self.moveBlocking()
-
-        self.gripperClose()
 
         return success
 
@@ -230,6 +231,8 @@ class Robot():
         self.gripperOpen()
 
         if success:
+            self.C.getFrame("predicted_obj").setPosition(end_position)
+            self.obj_pos = end_position
             self.moveBack(dir="z")
 
         return success
@@ -279,13 +282,12 @@ class Robot():
     """
 
     def gripperClose(self):
-        self.bot.gripperClose(ry._left, speed=.2)
+        self.bot.gripperMove(ry._left, width=.025, speed=.2)
         while not self.bot.gripperDone(ry._left):
-            self.bot.sync(self.C)
-
+            self.bot.sync(self.C, .1)
 
     def gripperOpen(self):
-        self.bot.gripperMove(ry._left, width=.079, speed=.1)
+        self.bot.gripperMove(ry._left, width=.075, speed=1)
         while not self.bot.gripperDone(ry._left):
             self.bot.sync(self.C)
 
@@ -297,7 +299,8 @@ class Robot():
             .solve()
         
         if verbose: print(ret)
-        if verbose > 1 and ret.feasible: self.komo.view(True)
+        if verbose > 1 and ret.feasible:
+            self.komo.view(True)
 
         movement_possible = bool(ret.feasible)
         if movement_possible:

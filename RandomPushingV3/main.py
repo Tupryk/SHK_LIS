@@ -3,8 +3,8 @@ from highLevelManipulation import Robot
 
 robot = Robot(real_robot=True)
 
-push_attempts = 100
-for i in range(push_attempts):
+manipulation_attempts = 100
+for i in range(manipulation_attempts):
 
     # Look towards object and get its center-point
     robot.updateObjectPosition()
@@ -21,4 +21,4 @@ for i in range(push_attempts):
         robot.graspObject()
         robot.placeObject(x_orientation=np.random.choice(["x", "y"]))
 
-    print("Achieved push number ", i+1)
+    print("Achieved manipulation number ", i+1)
