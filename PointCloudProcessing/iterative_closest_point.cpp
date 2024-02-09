@@ -3,6 +3,7 @@
 #include <pcl/point_types.h>
 #include <pcl/registration/icp.h>
 #include <pcl/visualization/cloud_viewer.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 
 int main()
 {
@@ -45,10 +46,25 @@ int main()
         *result_cloud += *aligned_cloud; // Merge aligned_cloud with result_cloud
     }
 
-    pcl::io::savePCDFileASCII("../data/result_cloud.pcd", *result_cloud);
+    // Statistical outlier removal parameters
+    const int mean_k = 50; // Number of nearest neighbors to compute mean distance
+    const double std_dev_mul = .1; // Standard deviation multiplier
 
+    // Create a statistical outlier removal filter
+    pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+    sor.setInputCloud(result_cloud);
+    sor.setMeanK(mean_k);
+    sor.setStddevMulThresh(std_dev_mul);
+
+    // Filter outliers
+    pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    sor.filter(*filtered_cloud);
+
+    //pcl::io::savePCDFileASCII("../data/result_cloud.pcd", *result_cloud);
+    pcl::io::savePCDFileASCII("../data/filtered_result_cloud.pcd", *filtered_cloud);
+    
     pcl::visualization::CloudViewer viewer("Result");
-    viewer.showCloud(result_cloud);
+    viewer.showCloud(filtered_cloud);
     while (!viewer.wasStopped()) {}
 
     return 0;
