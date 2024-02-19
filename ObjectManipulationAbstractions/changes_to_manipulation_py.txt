@@ -1,16 +1,15 @@
-To push:
-- Removed import random as it is not used
-- Fixed undefined variable in grasp_box
-- Add accumulated colisions for setup_point_to_point_motion
-- Give a list of possible orientations. The solver chooses which ever one is possible (Instead the user has to do it manually)
-- Implement manipulation for point clouds
-- Solve the self.rrt thing
+Main changes:
+- Fix undefined variable in grasp_box
+- Add accumulated collisions for setup_point_to_point_motion (It is a function parameter that does not get used)
+- Remove import random as it is not used
+- Solve the rrt thing
 
-Suggestions:
-- Gripper should have a default value (Maybe even be a class variable althougt this could be weird for two robots)
-- Add typing
+Other ideas:
+- Give a list of possible orientations instead of a specific one. The solver chooses which ever one is feasible/best
+- Implement manipulation for point clouds
+- Gripper frame ("l_gripper") input should have a default value (Maybe even be a class variable althougt this could be weird for two robots)
 - Change grasp_top_box function name
 - Helpers should be defined automatically, otherwise the user needs to know which function needs what helpers. Also helpers is kind of vague.
-- Change setup_pick_and_place_waypoints to setup_pick_and_place_problem/setup_pick_and_place_motion. What does addModeSwitch do?
+- Change setup_pick_and_place_waypoints to setup_pick_and_place_problem/setup_pick_and_place_motion
 - Could it be more abstract? Instead of all the pick place functions just move object to
-- The orientations should be a bit more clear
+- Add typing
