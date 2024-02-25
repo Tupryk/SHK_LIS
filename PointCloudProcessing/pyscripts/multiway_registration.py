@@ -1,9 +1,12 @@
 import open3d as o3d
 import numpy as np
 
-object="cake"
+#Important Hyperparameters to tune: voxel_size, max_correspondence_distance_coarse, max_correspondence_distance_fine, outlier_std_ratio, outlier_nb_neighbors
 
-no_pcs={"cake": 8, "nostopp": 8, "shoey": 8, "blocks": 16, "controller":16, "spray":16}
+
+object="controller"
+
+no_pcs={"cake": 8, "notstopp": 8, "shoey": 8, "blocks": 16, "controller":16, "spray":16}
 def load_point_clouds(voxel_size):
     pcds = []
     for i in range(no_pcs[object]):
@@ -13,10 +16,12 @@ def load_point_clouds(voxel_size):
     return pcds
 
 voxel_size = 0.004
+outlier_std_ratio=2
+outlier_nb_neighbors=20
 pcds_down = load_point_clouds(voxel_size)
 o3d.visualization.draw_geometries(pcds_down)
 
-def pairwise_registration(source, target):
+def pairwise_registration(source, target, max_correspondence_distance_coarse, max_correspondence_distance_fine):
     print("Apply point-to-plane ICP")
     source.estimate_normals()
     target.estimate_normals()
@@ -44,7 +49,7 @@ def full_registration(pcds, max_correspondence_distance_coarse,
     for source_id in range(n_pcds):
         for target_id in range(source_id + 1, n_pcds):
             transformation_icp, information_icp = pairwise_registration(
-                pcds[source_id], pcds[target_id])
+                pcds[source_id], pcds[target_id], max_correspondence_distance_coarse, max_correspondence_distance_fine)
             print("Build o3d.pipelines.registration.PoseGraph")
             if target_id == source_id + 1:  # odometry case
                 odometry = np.dot(transformation_icp, odometry)
@@ -67,8 +72,8 @@ def full_registration(pcds, max_correspondence_distance_coarse,
     return pose_graph
 
 print("Full registration ...")
-max_correspondence_distance_coarse = voxel_size * 15
-max_correspondence_distance_fine = voxel_size * 1.5
+max_correspondence_distance_coarse = voxel_size * 3
+max_correspondence_distance_fine = voxel_size * 1
 with o3d.utility.VerbosityContextManager(
         o3d.utility.VerbosityLevel.Debug) as cm:
     pose_graph = full_registration(pcds_down,
@@ -103,8 +108,8 @@ def display_inlier_outlier(cloud, ind):
     o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud])
     
 print("Statistical oulier removal")
-cl, ind = pcd_combined.remove_statistical_outlier(nb_neighbors=20,
-                                                    std_ratio=2)
+cl, ind = pcd_combined.remove_statistical_outlier(nb_neighbors=outlier_nb_neighbors,
+                                                    std_ratio=outlier_std_ratio)
 display_inlier_outlier(pcd_combined, ind)
 
 o3d.visualization.draw_geometries([cl])
