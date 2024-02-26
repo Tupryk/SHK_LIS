@@ -1,8 +1,9 @@
 import numpy as np
 import robotic as ry
+from typing import List
 
 
-def komoStraightPath(C: ry.Config, komo: ry.KOMO, frames: [str] = [], phases: [int] = [1, 2], gotoPoints: bool=True) -> ry.KOMO:
+def komoStraightPath(C: ry.Config, komo: ry.KOMO, frames: List[str]=[], phases: List[int]=[1, 2], gotoPoints: bool=True) -> ry.KOMO:
 
     if len(frames) == 2:
         delta = C.getFrame(frames[1]).getPosition() - \
@@ -24,7 +25,7 @@ def komoStraightPath(C: ry.Config, komo: ry.KOMO, frames: [str] = [], phases: [i
     return komo
 
 
-def createWaypointFrame(C: ry.Config, name: str, position: np.ndarray, color: [float] = [1., 0., 1.]) -> ry.Frame:
+def createWaypointFrame(C: ry.Config, name: str, position: np.ndarray, color: List[float] = [1., 0., 1.]) -> ry.Frame:
     way = C.getFrame(name)
     if not way:
         way = C.addFrame(name) \
@@ -62,13 +63,13 @@ def startupRobot(C: ry.Config, on_real: bool) -> ry.BotOp:
     return bot
 
 
-def basicKomo(C: ry.Config, phases: int=1, enableCollisions: bool=True) -> ry.KOMO:
+def basicKomo(C: ry.Config, phases: int=1, slices: int=20, enableCollisions: bool=True) -> ry.KOMO:
 
         q_now = C.getJointState()
 
         komo = ry.KOMO()
         komo.setConfig(C, enableCollisions)
-        komo.setTiming(phases, 20, 1., 2)
+        komo.setTiming(phases, slices, 1., 2)
 
         komo.addControlObjective([], 1, 1e-1)
         komo.addControlObjective([], 2, 1e0)
@@ -88,7 +89,7 @@ def plotLine(C: ry.Config,
              end: np.ndarray,
              name: str="line",
              resolution: float=10.,
-             color: [float]=[1., 0., 0.]):
+             color: List[float]=[1., 0., 0.]):
 
     seg = end-start
     line_len = np.linalg.norm(seg)

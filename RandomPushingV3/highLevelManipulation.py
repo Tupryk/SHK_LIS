@@ -88,18 +88,16 @@ class Robot():
 
         self.gripperClose() # Our gripper should be closed for a better push
 
-        ### First define the start and end waypoints
-        obj_pos = self.C.getFrame("predicted_obj").getPosition()
-
+        ### First define the start and end waypoints TODO: replace this chunk with define_start_and_end_waypoints
         # If there is no objective specified generate one from the arena
         if not len(push_end_position):
-            push_end_position = self.push_arena.randomPointInside()
+            push_end_position = self.push_arena.randomPointInside(self.table_height)
 
-        push_end_position[2] = obj_pos[2]
+        push_end_position[2] = self.obj_pos[2]
         
-        direction = push_end_position - obj_pos
+        direction = push_end_position - self.obj_pos
         direction /= np.linalg.norm(direction)
-        start_pos = obj_pos - direction * start_distance
+        start_pos = self.obj_pos - direction * start_distance
 
         # Temporary #
         start_pos[2] = .69
@@ -129,7 +127,7 @@ class Robot():
         if len(save_as):
             push_attempt = {
                 "success": success,
-                "objectPosition": obj_pos.tolist()
+                "objectPosition": self.obj_pos.tolist()
             }
             if success:
                 push_attempt["tauExternal"] = external_taus
@@ -146,6 +144,71 @@ class Robot():
             self.obj_pos = push_end_position
             self.moveBack()
 
+        return success
+    
+
+    def define_start_and_end_waypoints(self):
+        """
+        TODO:
+        """
+        # If there is no objective specified generate one from the arena
+        if not len(push_end_position):
+            push_end_position = self.push_arena.randomPointInside(self.table_height)
+
+        push_end_position[2] = self.obj_pos[2]
+        
+        direction = push_end_position - self.obj_pos
+        direction /= np.linalg.norm(direction)
+        start_pos = self.obj_pos - direction * start_distance
+
+        # Temporary #
+        start_pos[2] = .69
+        push_end_position[2] = .69
+        #############
+
+        createWaypointFrame(self.C, "safe_start", start_pos + np.array([0, 0, .1]))
+        createWaypointFrame(self.C, "push_start", start_pos)
+        createWaypointFrame(self.C, "push_end", push_end_position)
+    
+
+    def pullObject(self, pull_end_position: np.ndarray=np.array([])) -> bool:
+        """
+        This function will only work on the real robot as the simulation
+        can not calculate if the maxForceAllowed is exceeded.
+        """
+
+        self.gripperClose() # Our gripper should be closed for a better pull
+
+        if not len(pull_end_position):
+            pull_end_position = self.push_arena.randomPointInside(self.table_height)
+
+        createWaypointFrame(self.C, "pull_init_start", self.obj_pos + np.array([0, 0, .1]))
+        createWaypointFrame(self.C, "pull_init_end", np.array([self.obj_pos[0], self.obj_pos[1], self.table_height+.02]))
+
+        ### Put the gripper on top of the object
+        self.komo: ry.KOMO = basicKomo(self.C, phases=3, enableCollisions=self.on_real)
+        self.komo.addObjective([1, 3], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.8])
+        self.komo = komoStraightPath(self.C, self.komo, ["pull_init_start", "pull_init_end"], [2, 3])
+
+        success, _, _ = self.moveBlockingAndCheckForce(maxForceAllowed=1.)
+
+        createWaypointFrame(self.C, "pull_end_pos", pull_end_position)
+
+        ### Put the gripper on top of the object
+        z_pos = self.C.getFrame("l_gripper").getPosition()[2]
+        pull_end_position[2] = z_pos
+
+        self.komo: ry.KOMO = basicKomo(self.C, phases=1, enableCollisions=self.on_real)
+        self.komo.addObjective([], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.8])
+        self.komo.addObjective([], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, 0, 1e1], [0, 0, z_pos])
+        self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1, 1e1, 0], pull_end_position)
+
+        success = self.moveBlocking()
+
+        if success:
+            self.C.getFrame("predicted_obj").setPosition(pull_end_position)
+            self.obj_pos = pull_end_position
+        
         return success
     
 
@@ -282,7 +345,7 @@ class Robot():
     """
 
     def gripperClose(self):
-        self.bot.gripperMove(ry._left, width=.025, speed=.2)
+        self.bot.gripperClose(ry._left)
         while not self.bot.gripperDone(ry._left):
             self.bot.sync(self.C, .1)
 
@@ -341,6 +404,8 @@ class Robot():
 
             tic_time = time.monotonic()
             while self.bot.getTimeToEnd() > 0:
+
+                self.bot.sync(self.C, .0)
 
                 tic_time += .1
                 now_time = time.monotonic()
