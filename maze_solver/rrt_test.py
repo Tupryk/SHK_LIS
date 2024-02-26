@@ -107,4 +107,3 @@ for q in ret.x:
     C.view()
     time.sleep(.1)
 C.view(True)
-

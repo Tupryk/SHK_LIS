@@ -5,7 +5,6 @@ from typing import List
 
 
 def generate_maze_block(C: ry.Config, dimensions: list, position: list, frame_name: str):
-    #position = np.array(position) + C.getFrame("maze").getPosition()
     C.addFrame(frame_name, "maze") \
         .setRelativePosition(position) \
         .setShape(ry.ST.ssBox, size=[*dimensions, .001]) \
@@ -51,7 +50,7 @@ def solve_maze_rrt(C: ry.Config, visual: bool=False) -> ry._robotic.SolverReturn
     start_pos = C.getFrame("start").getPosition()
     goal_pos = C.getFrame("goal").getPosition()
 
-    C.addFrame("base").setPosition([*maze_pos[:2], start_pos[2]])
+    C.addFrame("base").setPosition([0, 0, start_pos[2]])
     C.addFrame("ego", "base") \
         .setJoint(ry.JT.transXYPhi, [-1., 1., -1., 1., -3., 3.]) \
         .setShape(ry.ST.ssBox, size=[.05, .1, .05, .002]) \

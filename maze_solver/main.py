@@ -57,8 +57,14 @@ if man.feasible:
     robot = robex.Robot(C)
     robot.execute_path_blocking(C, pose)
     robot.grasp(C)
-    path = solve_path_motion(C, ret.x)
-    if len(path):
+
+    man = manip.ManipulationModelling(C)
+    man.follow_path_on_plane(ret.x)
+    path = man.solve()
+    
+    try:
         robot.execute_path_blocking(C, path)
+    except:
+        print("Path is not feasible!")
 
 C.view(True)

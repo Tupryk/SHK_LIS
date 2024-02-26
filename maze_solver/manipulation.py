@@ -259,6 +259,50 @@ class ManipulationModelling():
         self.komo.addObjective([times[1]], ry.FS.positionDiff, [obj, '_push_end'], ry.OT.eq, [1e1])
         #obj end orientation: unchanged
         self.komo.addObjective([times[1]], ry.FS.quaternion, [obj], ry.OT.eq, [1e1], [], 1); #qobjPose.rot.getArr4d())
+    
+    def follow_path_on_plane(self, path: list, plane: str="z", moving_frame: str="l_gripper"):
+        """
+        This function supposes the the robot is already at the starting position!
+        Move through the 2D points defined in the path while staying on the plane specified.
+
+        TODO: Take direction of plane normal into account.
+        """
+        start_pos = self.C.getFrame(moving_frame).getPosition()
+        if plane == "x":
+            plane_pos = np.array([start_pos[0], 0, 0])
+            threed_path = []
+            for p in path:
+                threed_path.append([0, p[0], p[1]]) # TODO: check if this makes sense
+        elif plane == "y":
+            plane_pos = np.array([0, start_pos[1], 0])
+            threed_path = []
+            for p in path:
+                threed_path.append([p[0], 0, p[1]])
+        elif plane == "z":
+            plane_pos = np.array([0, 0, start_pos[2]])
+            threed_path = []
+            for p in path:
+                threed_path.append([p[0], p[1], 0])
+        else:
+            raise Exception('Plane is not defined: ', plane)
+        
+        imp_axis = plane_pos/np.linalg.norm(plane_pos)
+        
+        phases = len(path)-1
+        self.komo = ry.KOMO()
+        self.komo.setConfig(self.C, False)
+        self.komo.setTiming(phases, 5, 1., 2)
+
+        self.komo.addControlObjective([], 1, 1e-1)
+        self.komo.addControlObjective([], 2, 1e-1)
+
+        self.komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
+        self.komo.addObjective([1, phases], ry.FS.vectorZ, [moving_frame], ry.OT.eq, [1e1], imp_axis)
+        self.komo.addObjective([1, phases], ry.FS.position, [moving_frame], ry.OT.eq, imp_axis*1e1, plane_pos)
+
+        res = np.array([1, 1, 1]) - imp_axis
+        for i in range(1, len(path)):
+            self.komo.addObjective([i], ry.FS.position, [moving_frame], ry.OT.eq, res, threed_path[i])
 
     def path_must_be_straight(self, times, start_frame, end_frame, moving_frame="l_gripper", gotoPoints=False):
         """
