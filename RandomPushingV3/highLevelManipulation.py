@@ -183,23 +183,21 @@ class Robot():
             pull_end_position = self.push_arena.randomPointInside(self.table_height)
 
         createWaypointFrame(self.C, "pull_init_start", self.obj_pos + np.array([0, 0, .1]))
-        createWaypointFrame(self.C, "pull_init_end", np.array([self.obj_pos[0], self.obj_pos[1], self.table_height+.02]))
+        createWaypointFrame(self.C, "pull_init_end", self.obj_pos + np.array([0, 0, self.obj_dims[2]*.5])-.05)
 
         ### Put the gripper on top of the object
         self.komo: ry.KOMO = basicKomo(self.C, phases=3, enableCollisions=self.on_real)
-        self.komo.addObjective([1, 3], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.8])
+        self.komo.addObjective([1, 3], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.9])
         self.komo = komoStraightPath(self.C, self.komo, ["pull_init_start", "pull_init_end"], [2, 3])
 
-        success, _, _ = self.moveBlockingAndCheckForce(maxForceAllowed=1.)
-
-        createWaypointFrame(self.C, "pull_end_pos", pull_end_position)
+        success, _, _ = self.moveBlockingAndCheckForce(maxForceAllowed=7, speed=.5, verbose=1)
 
         ### Put the gripper on top of the object
         z_pos = self.C.getFrame("l_gripper").getPosition()[2]
         pull_end_position[2] = z_pos
 
         self.komo: ry.KOMO = basicKomo(self.C, phases=1, enableCollisions=self.on_real)
-        self.komo.addObjective([], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.8])
+        self.komo.addObjective([], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.9])
         self.komo.addObjective([], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, 0, 1e1], [0, 0, z_pos])
         self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1, 1e1, 0], pull_end_position)
 
@@ -345,7 +343,7 @@ class Robot():
     """
 
     def gripperClose(self):
-        self.bot.gripperClose(ry._left)
+        self.bot.gripperMove(ry._left, width=.0, speed=1)
         while not self.bot.gripperDone(ry._left):
             self.bot.sync(self.C, .1)
 
@@ -377,6 +375,7 @@ class Robot():
         
     def moveBlockingAndCheckForce(self,
                                   maxForceAllowed: float=np.nan,
+                                  speed: float=1.,
                                   verbose: int=0) -> Tuple[bool, list, list]:
         
         """
@@ -394,20 +393,19 @@ class Robot():
 
         # Prepare lists to store data
         max_force = -np.inf
+        prev_t = -1
         joint_states = []
         external_taus = []
 
         movement_possible = bool(ret.feasible)
         if movement_possible:
             
-            self.bot.moveAutoTimed(self.komo.getPath(), self.max_velocity)
+            self.bot.moveAutoTimed(self.komo.getPath(), speed)
 
             tic_time = time.monotonic()
             while self.bot.getTimeToEnd() > 0:
 
-                self.bot.sync(self.C, .0)
-
-                tic_time += .1
+                tic_time += .01
                 now_time = time.monotonic()
                 if tic_time > now_time:
                     time.sleep(tic_time - now_time)
@@ -422,12 +420,23 @@ class Robot():
                 joint_states.append(self.bot.get_q().tolist())
                 external_taus.append(tauExternal.tolist())
 
-                # Check if max force is exceeded
-                max_force = F if F > max_force else max_force
-                if max_force > maxForceAllowed:
-                    print("Max force exceeded!")
+                if prev_t == self.bot.get_t():
+                    print("Broke doe to stalling!")
                     break
-            
+
+                prev_t = self.bot.get_t()
+
+                # Check if max force is exceeded
+                if verbose:
+                    print("Current force on l_gripper: ", F[0])
+                    print("t of bot: ", prev_t)
+                max_force = F[0] if F[0] > max_force else max_force
+
+                self.bot.sync(self.C, .0)
+                if max_force > maxForceAllowed:
+                    self.bot.stop(self.C)
+                    print("Max force exceeded! Robot stopped")
+                    break
             if verbose: print("Max force enacted: ", max_force)
             self.bot.sync(self.C)
 

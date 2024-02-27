@@ -1,7 +1,7 @@
 import numpy as np
 from highLevelManipulation import Robot
 
-robot = Robot(real_robot=False)
+robot = Robot(real_robot=True)
 
 manipulation_attempts = 100
 for i in range(manipulation_attempts):
@@ -10,7 +10,7 @@ for i in range(manipulation_attempts):
     robot.updateObjectPosition()
 
     # Starting from home makes push calculation easier
-    robot.goHome()
+    #robot.goHome()
 
     # Randomly choose a manipulation type
     #action = np.random.choice(["push", "pull", "grasp"])
