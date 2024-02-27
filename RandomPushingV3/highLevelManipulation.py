@@ -38,8 +38,8 @@ class Robot():
         arena_pos[2] = self.table_height
         arena_dims = np.array([.25, .30])
 
-        self.push_arena = RectangularArena(arena_pos, width=arena_dims[0], height=arena_dims[1], name="pushArena")
-        self.push_arena.display(self.C, color=[.5, .5, .5])
+        self.action_arena = RectangularArena(arena_pos, width=arena_dims[0], height=arena_dims[1], name="pushArena")
+        self.action_arena.display(self.C, color=[.5, .5, .5])
 
         self.scan_arena = RectangularArena(arena_pos, width=arena_dims[0]+.2, height=arena_dims[1]+.2, name="scanArena")
         self.scan_arena.display(self.C, color=[1., 1., 1.])
@@ -91,7 +91,7 @@ class Robot():
         ### First define the start and end waypoints TODO: replace this chunk with define_start_and_end_waypoints
         # If there is no objective specified generate one from the arena
         if not len(push_end_position):
-            push_end_position = self.push_arena.randomPointInside(self.table_height)
+            push_end_position = self.action_arena.randomPointInside(self.table_height)
 
         push_end_position[2] = self.obj_pos[2]
         
@@ -153,7 +153,7 @@ class Robot():
         """
         # If there is no objective specified generate one from the arena
         if not len(push_end_position):
-            push_end_position = self.push_arena.randomPointInside(self.table_height)
+            push_end_position = self.action_arena.randomPointInside(self.table_height)
 
         push_end_position[2] = self.obj_pos[2]
         
@@ -180,24 +180,26 @@ class Robot():
         self.gripperClose() # Our gripper should be closed for a better pull
 
         if not len(pull_end_position):
-            pull_end_position = self.push_arena.randomPointInside(self.table_height)
+            pull_end_position = self.action_arena.randomPointInside(self.table_height)
 
         createWaypointFrame(self.C, "pull_init_start", self.obj_pos + np.array([0, 0, .1]))
-        createWaypointFrame(self.C, "pull_init_end", self.obj_pos + np.array([0, 0, self.obj_dims[2]*.5])-.05)
+        createWaypointFrame(self.C, "pull_init_end", self.obj_pos + np.array([0, 0, self.obj_dims[2]*.5])-.006)
 
         ### Put the gripper on top of the object
         self.komo: ry.KOMO = basicKomo(self.C, phases=3, enableCollisions=self.on_real)
-        self.komo.addObjective([1, 3], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.9])
+        self.komo.addObjective([1, 3], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.96])
         self.komo = komoStraightPath(self.C, self.komo, ["pull_init_start", "pull_init_end"], [2, 3])
 
         success, _, _ = self.moveBlockingAndCheckForce(maxForceAllowed=7, speed=.5, verbose=1)
 
         ### Put the gripper on top of the object
-        z_pos = self.C.getFrame("l_gripper").getPosition()[2]
+        self.bot.sync(self.C, 0)
+        z_pos = self.C.getFrame("l_gripper").getPosition()[2]-.006
         pull_end_position[2] = z_pos
+        createWaypointFrame(self.C, "table_edge", pull_end_position)
 
-        self.komo: ry.KOMO = basicKomo(self.C, phases=1, enableCollisions=self.on_real)
-        self.komo.addObjective([], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.9])
+        self.komo: ry.KOMO = basicKomo(self.C, phases=1, enableCollisions=self.on_real, slices=35)
+        self.komo.addObjective([], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.96])
         self.komo.addObjective([], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, 0, 1e1], [0, 0, z_pos])
         self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1, 1e1, 0], pull_end_position)
 
@@ -206,6 +208,24 @@ class Robot():
         if success:
             self.C.getFrame("predicted_obj").setPosition(pull_end_position)
             self.obj_pos = pull_end_position
+        
+        return success
+    
+
+    def tableSideGrasp(self):
+
+        self.gripperOpen()
+
+        self.komo: ry.KOMO = basicKomo(self.C, phases=1, enableCollisions=False)
+        self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], self.obj_pos + np.array([0, self.obj_dims[1]*.5+.05, -.01]))
+        self.komo.addObjective([1], ry.FS.scalarProductYZ, ["table", "l_gripper"], ry.OT.ineq, [-1e1], [.96])
+        self.komo.addObjective([1], ry.FS.scalarProductXZ, ["l_gripper", "table"], ry.OT.eq, [1e1], [1])
+
+        success = self.moveBlocking(verbose=1)
+
+        if success:
+            self.moveBack(-.07, dir="z")
+            self.gripperClose()
         
         return success
     
@@ -283,7 +303,7 @@ class Robot():
 
         # If no position is specified we place the object at a random spot in the arena.
         if not len(end_position):
-            end_position = self.push_arena.randomPointInside()
+            end_position = self.action_arena.randomPointInside()
 
         gripper_end_position = np.array([end_position[0], end_position[1], 0.])
         gripper_end_position[2] = self.obj_dims[2] + self.table_height - self.gripper_z_depth
@@ -420,11 +440,11 @@ class Robot():
                 joint_states.append(self.bot.get_q().tolist())
                 external_taus.append(tauExternal.tolist())
 
-                if prev_t == self.bot.get_t():
-                    print("Broke doe to stalling!")
-                    break
+                # if prev_t == self.bot.get_t():
+                #     print("Broke doe to stalling!")
+                #     break
 
-                prev_t = self.bot.get_t()
+                # prev_t = self.bot.get_t()
 
                 # Check if max force is exceeded
                 if verbose:
