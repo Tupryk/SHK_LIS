@@ -29,14 +29,14 @@ def createWaypointFrame(C: ry.Config, name: str, position: np.ndarray, color: Li
     way = C.getFrame(name)
     if not way:
         way = C.addFrame(name) \
-            .setShape(ry.ST.sphere, size=[.01, .002]) \
+            .setShape(ry.ST.sphere, size=[.01, .005]) \
             .setContact(False)
     way.setPosition(position).setColor(color)
     return way
 
 
 def setupConfig(on_real: bool=False,
-                obj_pos: np.ndarray=np.array([-.50, .1, .69])) -> ry.Config:
+                obj_pos: np.ndarray=np.array([-.5, .1, .69])) -> ry.Config:
 
     C = ry.Config()
     C.addFile(ry.raiPath('scenarios/pandaSingle.g'))
@@ -44,7 +44,7 @@ def setupConfig(on_real: bool=False,
     if not on_real:
         C.addFrame('obj') \
             .setPosition(obj_pos) \
-            .setShape(ry.ST.ssBox, [.05, .05, .05, 0]) \
+            .setShape(ry.ST.ssBox, [.12, .12, .04, 0]) \
             .setColor([1, .5, 0]) \
             .setMass(.1)
     
@@ -103,7 +103,7 @@ def plotLine(C: ry.Config,
         if not frame:
             C.addFrame(f"{name}_{p}") \
                 .setPosition(position) \
-                .setShape(ry.ST.sphere, size=[.02]) \
+                .setShape(ry.ST.sphere, size=[.005]) \
                 .setColor(color)
         else:
             frame.setPosition(position)

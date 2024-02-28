@@ -44,6 +44,12 @@ class Robot():
         self.scan_arena = RectangularArena(arena_pos, width=arena_dims[0]+.2, height=arena_dims[1]+.2, name="scanArena")
         self.scan_arena.display(self.C, color=[1., 1., 1.])
 
+        self.C.addFrame("pivot_wall") \
+            .setShape(ry.ST.ssBox, [.05, arena_dims[0], .3, .0001]) \
+            .setPosition([arena_pos + np.array([arena_dims[0]*-.5 - .025, 0, .15])]) \
+            .setColor([1, 0, 0, .5]) \
+            .setContact(1)
+
 
     def goHome(self):
         self.bot.home(self.C)
@@ -212,7 +218,7 @@ class Robot():
         return success
     
 
-    def tableSideGrasp(self):
+    def tableSideGrasp(self) -> bool:
 
         self.gripperOpen()
 
@@ -229,6 +235,55 @@ class Robot():
         
         return success
     
+
+    def approachPoint(self, point: np.ndarray) -> bool:
+
+        self.komo = basicKomo(self.C)
+        self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], point)
+
+        return self.moveBlocking()
+    
+
+    def pivot(self) -> bool:
+        """
+        In this function we assume that the object is positioned against a wall
+        and is perpendicular to it.
+        """
+        self.gripperClose()
+
+        initial_pos = self.obj_pos + np.array([self.obj_dims[0]*.5 + .04, 0, 0])
+        success = self.approachPoint(initial_pos)
+
+        if success:
+            # Need to create a wall frame in the init
+            axis_point = self.obj_pos - np.array([self.obj_dims[0]*.5, 0, 0])
+            end_pos = self.obj_pos + np.array([
+                self.obj_dims[2]*.5 - self.obj_dims[0]*.5,
+                0,
+                self.obj_dims[0] - self.obj_dims[2]*.5])
+
+            createWaypointFrame(self.C, "inital_pivot_pos", initial_pos)
+            createWaypointFrame(self.C, "touch_obj_pivot", initial_pos - np.array([.04, 0, 0]))
+            createWaypointFrame(self.C, "pivot_axis_point", axis_point)
+            createWaypointFrame(self.C, "pivot_end_pos", end_pos, color=[1, 1, 0])
+            dist_to_keep = np.linalg.norm(axis_point - end_pos)
+            
+            self.komo = basicKomo(self.C, phases=3)
+            self.komo.addObjective([], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [0])
+            self.komo = komoStraightPath(self.C, self.komo, ["inital_pivot_pos", "touch_obj_pivot"], [0, 1])
+            #self.komo.addObjective([2, 3], ry.FS.positionDiff, ["l_gripper", "pivot_axis_point"], ry.OT.eq, [1e-1], [dist_to_keep])
+            self.komo.addObjective([3], ry.FS.positionDiff, ["l_gripper", "pivot_end_pos"], ry.OT.eq, [1e1])
+
+            success = self.moveBlocking()
+            if success:
+                print("did the thing")
+            else:
+                print("Nope")
+
+            return success
+        
+        return False
+
 
     def placeGraspMotion(self, end_position: np.ndarray, x_orientation: str) -> bool:
 

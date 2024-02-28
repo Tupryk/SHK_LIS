@@ -95,7 +95,7 @@ def getScannedObject(bot: ry.BotOp,
 
             C.addFrame('mid_point') \
                 .setPosition(midpoint) \
-                .setShape(ry.ST.marker, size=[.2]) \
+                .setShape(ry.ST.marker, size=[.001]) \
                 .setColor([1, 1, 0])
         else:
             pclFrame.setPointCloud(np.array(points))
