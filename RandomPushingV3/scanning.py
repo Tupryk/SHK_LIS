@@ -70,7 +70,7 @@ def getPointsMinMaxCoors(points: [[float]]) -> Tuple[np.ndarray, np.ndarray]:
 def getScannedObject(bot: ry.BotOp,
                      C: ry.Config,
                      arena: Arena,
-                     visuals: bool=True) -> Tuple[np.ndarray, np.ndarray]:
+                     visuals: bool=True) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     points, _ = getFilteredPointCloud(bot, C, arena)
     points = np.array(points)

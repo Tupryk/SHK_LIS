@@ -2,9 +2,11 @@ import json
 import time
 import numpy as np
 import robotic as ry
+import open3d as o3d
 from typing import Tuple
 from arenas import RectangularArena
 from scanning import getScannedObject
+from cubeEstimator import estimate_cube_pose
 from raiUtils import (createWaypointFrame,
                       setupConfig,
                       startupRobot,
@@ -17,9 +19,9 @@ class Robot():
                  real_robot: bool=False,
                  max_velocity: float=1.,
                  initial_object_position: np.ndarray=np.array([-.55, -.1, .69]),
-                 object_dimensions: np.ndarray=np.array([.05, .05, .05])):
+                 object_dimensions: np.ndarray=np.array([.12, .12, .04])):
         
-        self.C = setupConfig(real_robot, initial_object_position)
+        self.C = setupConfig(real_robot, initial_object_position, object_dimensions)
         self.bot = startupRobot(self.C, real_robot)
         self.komo = None
         self.arena = None
@@ -49,6 +51,19 @@ class Robot():
             .setPosition([arena_pos + np.array([arena_dims[0]*-.5 - .025, 0, .15])]) \
             .setColor([1, 0, 0, .5]) \
             .setContact(1)
+        
+        self.C.addFrame("objective_pos") \
+            .setShape(ry.ST.ssBox, [*object_dimensions, .0001]) \
+            .setPosition(initial_object_position) \
+            .setColor([1, 0, 1, .5]) \
+            .setContact(0)
+        
+        # A bit redundant to have this, self.obj_pos, self.obj_dims and "predicted_obj" frame. Will have to fix...
+        self.C.addFrame("predicted_obj_frame") \
+            .setShape(ry.ST.ssBox, [*object_dimensions, .0001]) \
+            .setPosition(initial_object_position) \
+            .setColor([1, 0, 1, .5]) \
+            .setContact(0)
 
 
     def goHome(self):
@@ -70,13 +85,19 @@ class Robot():
         self.moveBlocking()
 
         ### Take the point cloud and update the predicted object position
-        mid_point, _, dims = getScannedObject(self.bot, self.C, self.scan_arena)
+        mid_point, point_cloud_, dims = getScannedObject(self.bot, self.C, self.scan_arena)
         if not len(mid_point):
             raise Exception("Lost the object!")
         
         self.C.getFrame("predicted_obj").setPosition(mid_point)
         self.obj_pos = mid_point
         self.obj_dims = dims
+
+        # Update estimated object frame
+        point_cloud = o3d.geometry.PointCloud()
+        point_cloud.points = o3d.utility.Vector3dVector(point_cloud_)
+        pose_mat = estimate_cube_pose(point_cloud, [.12, .12, .04], verbose=1, add_noise=False)
+        self.C.getFrame("predicted_obj_frame").setPose(pose_mat)
 
 
     def pushObject(self, push_end_position: np.ndarray=np.array([]), start_distance: float=.1, save_as: str="") -> bool:

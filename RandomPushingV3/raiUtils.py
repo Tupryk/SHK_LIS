@@ -36,7 +36,8 @@ def createWaypointFrame(C: ry.Config, name: str, position: np.ndarray, color: Li
 
 
 def setupConfig(on_real: bool=False,
-                obj_pos: np.ndarray=np.array([-.5, .1, .69])) -> ry.Config:
+                obj_pos: np.ndarray=np.array([-.5, .1, .69]),
+                object_dims: np.ndarray=np.array([.12, .12, .04])) -> ry.Config:
 
     C = ry.Config()
     C.addFile(ry.raiPath('scenarios/pandaSingle.g'))
@@ -44,7 +45,7 @@ def setupConfig(on_real: bool=False,
     if not on_real:
         C.addFrame('obj') \
             .setPosition(obj_pos) \
-            .setShape(ry.ST.ssBox, [.12, .12, .04, 0]) \
+            .setShape(ry.ST.ssBox, [*object_dims, 0]) \
             .setColor([1, .5, 0]) \
             .setMass(.1)
     
