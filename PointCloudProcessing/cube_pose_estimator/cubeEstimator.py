@@ -1,7 +1,8 @@
 import numpy as np
 import open3d as o3d
 
-def estimate_cube_pose(point_cloud: np.ndarray, dimensions: np.ndarray, add_noise: bool=True, verbose: int=0) -> np.ndarray:
+
+def estimate_cube_pose(point_cloud: np.ndarray, dimensions: np.ndarray, add_noise: bool = True, verbose: int = 0, origin=np.array([-.55, -.1, .69])) -> np.ndarray:
     # Generate comparison point cloud from know cube dimensions
     synthetic = []
     step_size = .005
@@ -13,11 +14,13 @@ def estimate_cube_pose(point_cloud: np.ndarray, dimensions: np.ndarray, add_nois
             for z in range(z_count):
                 if x == 0 or y == 0 or z == 0 or x == x_count-1 or y == y_count-1 or z == z_count-1:
                     if add_noise:
-                        new_point = [x*step_size + np.random.random()*step_size,
-                                     y*step_size + np.random.random()*step_size,
-                                     z*step_size + np.random.random()*step_size]
+                        new_point = np.array([x*step_size + np.random.random()*step_size,
+                                              y*step_size + np.random.random()*step_size,
+                                              z*step_size + np.random.random()*step_size])
                     else:
-                        new_point = [x*step_size, y*step_size, z*step_size]
+                        new_point = np.array(
+                            [x*step_size, y*step_size, z*step_size])
+                    new_point = (new_point + origin).tolist()
                     synthetic.append(new_point)
 
     np_synthetic = np.array(synthetic)
@@ -31,7 +34,8 @@ def estimate_cube_pose(point_cloud: np.ndarray, dimensions: np.ndarray, add_nois
     icp_result = o3d.pipelines.registration.registration_icp(
         point_cloud, synthetic, max_correspondence_distance=0.05,
         estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(),
-        criteria=o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=50)
+        criteria=o3d.pipelines.registration.ICPConvergenceCriteria(
+            max_iteration=50)
     )
 
     transformation_matrix = icp_result.transformation

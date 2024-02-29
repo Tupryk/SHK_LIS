@@ -1,6 +1,4 @@
-import open3d as o3d
 from highLevelManipulation import Robot
-from cubeEstimator import estimate_cube_pose
 
 
 robot = Robot(real_robot=True)
