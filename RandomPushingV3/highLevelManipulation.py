@@ -16,7 +16,7 @@ class Robot():
     def __init__(self,
                  real_robot: bool=False,
                  max_velocity: float=1.,
-                 initial_object_position: np.ndarray=np.array([-.5, -.1, .69]),
+                 initial_object_position: np.ndarray=np.array([-.55, -.1, .69]),
                  object_dimensions: np.ndarray=np.array([.05, .05, .05])):
         
         self.C = setupConfig(real_robot, initial_object_position)
@@ -34,7 +34,7 @@ class Robot():
 
         createWaypointFrame(self.C, "predicted_obj", initial_object_position)
 
-        arena_pos = initial_object_position.copy()
+        arena_pos = np.array([-.5, -.1, .69])
         arena_pos[2] = self.table_height
         arena_dims = np.array([.25, .30])
 
@@ -267,19 +267,24 @@ class Robot():
             createWaypointFrame(self.C, "pivot_axis_point", axis_point)
             createWaypointFrame(self.C, "pivot_end_pos", end_pos, color=[1, 1, 0])
             dist_to_keep = np.linalg.norm(axis_point - end_pos)
+            gripper_starting_pos = self.C.getFrame("l_gripper").getPosition()
             
-            self.komo = basicKomo(self.C, phases=3)
-            self.komo.addObjective([], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [0])
+            self.komo = basicKomo(self.C, phases=1)
             self.komo = komoStraightPath(self.C, self.komo, ["inital_pivot_pos", "touch_obj_pivot"], [0, 1])
-            #self.komo.addObjective([2, 3], ry.FS.positionDiff, ["l_gripper", "pivot_axis_point"], ry.OT.eq, [1e-1], [dist_to_keep])
-            self.komo.addObjective([3], ry.FS.positionDiff, ["l_gripper", "pivot_end_pos"], ry.OT.eq, [1e1])
+            success = self.moveBlocking()
+
+            self.komo = basicKomo(self.C, phases=2)
+            self.komo.addObjective([1, 2], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [0])
+            self.komo.addObjective([1, 2], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, 1e1, 0], gripper_starting_pos)
+            #self.komo.addObjective([1, 2], ry.FS.positionDiff, ["l_gripper", "pivot_axis_point"], ry.OT.eq, [1e-1], [dist_to_keep])
+            self.komo.addObjective([2], ry.FS.positionDiff, ["l_gripper", "pivot_end_pos"], ry.OT.eq, [1e1])
 
             success = self.moveBlocking()
             if success:
                 print("did the thing")
             else:
                 print("Nope")
-
+            self.C.view(True)
             return success
         
         return False
