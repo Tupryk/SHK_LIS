@@ -2,10 +2,10 @@ import numpy as np
 import open3d as o3d
 
 
-def estimate_cube_pose(point_cloud: np.ndarray, dimensions: np.ndarray, add_noise: bool = True, verbose: int = 0, origin=np.array([-.55, -.1, .69])) -> np.ndarray:
+def estimate_cube_pose(point_cloud: np.ndarray, dimensions: np.ndarray, add_noise: bool = True, verbose: int = 0, origin=np.array([-.55, -.1, .67])) -> np.ndarray:
     # Generate comparison point cloud from know cube dimensions
     synthetic = []
-    step_size = .005
+    step_size = .002
     x_count = int(dimensions[0] / step_size)
     y_count = int(dimensions[1] / step_size)
     z_count = int(dimensions[2] / step_size)
@@ -32,7 +32,7 @@ def estimate_cube_pose(point_cloud: np.ndarray, dimensions: np.ndarray, add_nois
 
     # Perform icp to get the pose of the point cloud with respect to the original position
     icp_result = o3d.pipelines.registration.registration_icp(
-        point_cloud, synthetic, max_correspondence_distance=0.05,
+        point_cloud, synthetic, max_correspondence_distance=0.1,
         estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(),
         criteria=o3d.pipelines.registration.ICPConvergenceCriteria(
             max_iteration=50)

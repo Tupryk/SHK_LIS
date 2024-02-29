@@ -9,7 +9,7 @@ This code needs cleaning
 def getFilteredPointCloud(bot: ry.BotOp,
                           C: ry.Config,
                           arena: Arena,
-                          z_cutoff: float=.68) -> Tuple[List[float], List[float]]:
+                          z_cutoff: float=.67) -> Tuple[List[float], List[float]]:
     bot.sync(C, .0)
     rgb, depth, points = bot.getImageDepthPcl('cameraWrist', False)
 
@@ -50,7 +50,7 @@ def getFilteredPointCloud(bot: ry.BotOp,
     return objectpoints, colors
 
 
-def getPointsMinMaxCoors(points: [[float]]) -> Tuple[np.ndarray, np.ndarray]:
+def getPointsMinMaxCoors(points: List[List[float]]) -> Tuple[np.ndarray, np.ndarray]:
 
     min_coor = np.array([
         min([p[0] for p in points]),
@@ -89,7 +89,7 @@ def getScannedObject(bot: ry.BotOp,
         pclFrame = C.getFrame("pcl")
         if not pclFrame:
             pclFrame = C.addFrame('pcl')
-            pclFrame.setPointCloud(np.array(points))
+            pclFrame.setPointCloud(points)
             pclFrame.setColor([0.,1.,0.]) #only to see it when overlaying with truth
             C.view_recopyMeshes()
 
@@ -98,7 +98,7 @@ def getScannedObject(bot: ry.BotOp,
                 .setShape(ry.ST.marker, size=[.001]) \
                 .setColor([1, 1, 0])
         else:
-            pclFrame.setPointCloud(np.array(points))
+            pclFrame.setPointCloud(points)
             C.view_recopyMeshes()
             C.getFrame('mid_point') \
                 .setPosition(midpoint)
