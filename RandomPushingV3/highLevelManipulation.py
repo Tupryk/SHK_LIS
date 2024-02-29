@@ -12,6 +12,7 @@ from raiUtils import (createWaypointFrame,
                       startupRobot,
                       basicKomo,
                       komoStraightPath)
+from utils import extract_position_and_quaternion
 
 
 class Robot():
@@ -19,7 +20,7 @@ class Robot():
                  real_robot: bool=False,
                  max_velocity: float=1.,
                  initial_object_position: np.ndarray=np.array([-.55, -.1, .69]),
-                 object_dimensions: np.ndarray=np.array([.12, .12, .04])):
+                 object_dimensions: np.ndarray=np.array([.12, .04, .04])):
         
         self.C = setupConfig(real_robot, initial_object_position, object_dimensions)
         self.bot = startupRobot(self.C, real_robot)
@@ -52,16 +53,16 @@ class Robot():
             .setColor([1, 0, 0, .5]) \
             .setContact(1)
         
+        initial_object_position[2] -= .02
         self.C.addFrame("objective_pos") \
             .setShape(ry.ST.ssBox, [*object_dimensions, .0001]) \
             .setPosition(initial_object_position) \
-            .setColor([1, 0, 1, .5]) \
+            .setColor([0, 1, 0, .5]) \
             .setContact(0)
         
         # A bit redundant to have this, self.obj_pos, self.obj_dims and "predicted_obj" frame. Will have to fix...
-        self.C.addFrame("predicted_obj_frame") \
+        self.C.addFrame("predicted_obj_frame", "objective_pos") \
             .setShape(ry.ST.ssBox, [*object_dimensions, .0001]) \
-            .setPosition(initial_object_position) \
             .setColor([1, 0, 1, .5]) \
             .setContact(0)
 
@@ -96,8 +97,10 @@ class Robot():
         # Update estimated object frame
         point_cloud = o3d.geometry.PointCloud()
         point_cloud.points = o3d.utility.Vector3dVector(point_cloud_)
-        pose_mat = estimate_cube_pose(point_cloud, [.12, .12, .04], verbose=1, add_noise=False)
-        self.C.getFrame("predicted_obj_frame").setPose(pose_mat)
+        pose_mat = estimate_cube_pose(point_cloud, [.12, .04, .04], verbose=0, add_noise=True)
+        position, quaternion = extract_position_and_quaternion(pose_mat)
+        self.C.getFrame("predicted_obj_frame").setPosition(position).setRelativeQuaternion(quaternion)
+        return point_cloud
 
 
     def pushObject(self, push_end_position: np.ndarray=np.array([]), start_distance: float=.1, save_as: str="") -> bool:
@@ -210,23 +213,23 @@ class Robot():
             pull_end_position = self.action_arena.randomPointInside(self.table_height)
 
         createWaypointFrame(self.C, "pull_init_start", self.obj_pos + np.array([0, 0, .1]))
-        createWaypointFrame(self.C, "pull_init_end", self.obj_pos + np.array([0, 0, self.obj_dims[2]*.5])-.006)
+        createWaypointFrame(self.C, "pull_init_end", self.obj_pos + np.array([0, 0, self.obj_dims[2]*.5])-.012)
 
         ### Put the gripper on top of the object
         self.komo: ry.KOMO = basicKomo(self.C, phases=3, enableCollisions=self.on_real)
-        self.komo.addObjective([1, 3], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.96])
+        self.komo.addObjective([1, 3], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.99])
         self.komo = komoStraightPath(self.C, self.komo, ["pull_init_start", "pull_init_end"], [2, 3])
 
         success, _, _ = self.moveBlockingAndCheckForce(maxForceAllowed=7, speed=.5, verbose=1)
 
-        ### Put the gripper on top of the object
+        ### Perform pull motion towards the endpoint
         self.bot.sync(self.C, 0)
-        z_pos = self.C.getFrame("l_gripper").getPosition()[2]-.006
+        z_pos = self.C.getFrame("l_gripper").getPosition()[2] -.006
         pull_end_position[2] = z_pos
-        createWaypointFrame(self.C, "table_edge", pull_end_position)
+        createWaypointFrame(self.C, "pull_end_pos", pull_end_position)
 
         self.komo: ry.KOMO = basicKomo(self.C, phases=1, enableCollisions=self.on_real, slices=35)
-        self.komo.addObjective([], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.96])
+        self.komo.addObjective([], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.99])
         self.komo.addObjective([], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, 0, 1e1], [0, 0, z_pos])
         self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1, 1e1, 0], pull_end_position)
 
@@ -235,6 +238,40 @@ class Robot():
         if success:
             self.C.getFrame("predicted_obj").setPosition(pull_end_position)
             self.obj_pos = pull_end_position
+        
+        return success
+    
+
+    def pullRotateObject(self, angle_cos: float) -> bool:
+        """
+        This function will only work on the real robot as the simulation
+        can not calculate if the maxForceAllowed is exceeded.
+        """
+
+        self.gripperClose() # Our gripper should be closed for a better pull
+
+        createWaypointFrame(self.C, "pull_init_start", self.obj_pos + np.array([0, 0, .1]))
+        createWaypointFrame(self.C, "pull_init_end", self.obj_pos + np.array([0, 0, self.obj_dims[2]*.5])-.012)
+
+        ### Put the gripper on top of the object
+        self.komo: ry.KOMO = basicKomo(self.C, phases=3, enableCollisions=self.on_real)
+        self.komo.addObjective([1, 3], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0, 0, 1])
+        self.komo = komoStraightPath(self.C, self.komo, ["pull_init_start", "pull_init_end"], [2, 3])
+        self.komo.addObjective([2, 3], ry.FS.scalarProductXY, ["table", "l_gripper"], ry.OT.eq, [1e1], [0])
+
+        success, _, _ = self.moveBlockingAndCheckForce(maxForceAllowed=7, speed=.5, verbose=1)
+
+        ### Put the gripper on top of the object
+        self.bot.sync(self.C, 0)
+        current_pos = self.C.getFrame("l_gripper").getPosition()
+        current_pos[2] -= .01
+
+        self.komo: ry.KOMO = basicKomo(self.C, phases=1, enableCollisions=self.on_real)
+        self.komo.addObjective([], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], current_pos)
+        self.komo.addObjective([], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0, 0, 1])
+        self.komo.addObjective([1], ry.FS.scalarProductXY, ["table", "l_gripper"], ry.OT.eq, [1e1], [angle_cos])
+
+        success = self.moveBlocking()
         
         return success
     
@@ -294,11 +331,14 @@ class Robot():
             self.komo = komoStraightPath(self.C, self.komo, ["inital_pivot_pos", "touch_obj_pivot"], [0, 1])
             success = self.moveBlocking()
 
-            self.komo = basicKomo(self.C, phases=2)
-            self.komo.addObjective([1, 2], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [0])
-            self.komo.addObjective([1, 2], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, 1e1, 0], gripper_starting_pos)
-            #self.komo.addObjective([1, 2], ry.FS.positionDiff, ["l_gripper", "pivot_axis_point"], ry.OT.eq, [1e-1], [dist_to_keep])
+            self.komo = basicKomo(self.C, phases=2, slices=35, enableCollisions=False)
+            #self.komo.addObjective([1, 2], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [0])
+            self.komo.addObjective([1, 2], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, .1, 0], gripper_starting_pos)
+            self.komo.addObjective([1, 2], ry.FS.positionDiff, ["l_gripper", "pivot_axis_point"], ry.OT.ineq, [-1], [dist_to_keep -.02])
+            self.komo.addObjective([1, 2], ry.FS.positionDiff, ["l_gripper", "pivot_axis_point"], ry.OT.ineq, [1], [dist_to_keep +.02])
             self.komo.addObjective([2], ry.FS.positionDiff, ["l_gripper", "pivot_end_pos"], ry.OT.eq, [1e1])
+            print(dist_to_keep)
+            print(np.linalg.norm(self.C.eval(ry.FS.positionDiff, ["pivot_axis_point", "l_gripper"])[0]))
 
             success = self.moveBlocking()
             if success:
