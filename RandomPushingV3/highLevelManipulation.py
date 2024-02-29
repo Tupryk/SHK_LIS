@@ -100,7 +100,10 @@ class Robot():
         pose_mat = estimate_cube_pose(point_cloud, [.12, .04, .04], verbose=0, add_noise=True)
         position, quaternion = extract_position_and_quaternion(pose_mat)
         self.C.getFrame("predicted_obj_frame").setPosition(position).setRelativeQuaternion(quaternion)
+<<<<<<< HEAD
         return point_cloud
+=======
+>>>>>>> ef9027ffc15b9bd953e5f82610fcd91f9e87a580
 
 
     def pushObject(self, push_end_position: np.ndarray=np.array([]), start_distance: float=.1, save_as: str="") -> bool:

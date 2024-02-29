@@ -1,4 +1,5 @@
 import numpy as np
+from typing import List
 
 
 def line_circle_intersection(line_pos, line_vec, circle_pos, circle_radious):
@@ -75,9 +76,46 @@ def segment_line(point1, point2, point_between):
     return [point1 + (point2 - point1) * 0.5 * (1-np.cos(np.pi * i/(point_between-1))) for i in range(point_between)]
 
 
-def pathLength(waypoints: [np.ndarray]) -> float:
+def pathLength(waypoints: List[np.ndarray]) -> float:
     sum_ = 0
     for i, _ in enumerate(waypoints[1:]):
         sum_ += np.linalg.norm(waypoints[i]-waypoints[i-1])
     return sum_
     
+def extract_position_and_quaternion(pose_matrix):
+    # Extract position (translation) from the last column of the pose matrix
+    position = pose_matrix[:3, 3]
+
+    # Extract the rotation matrix from the upper-left 3x3 submatrix
+    rotation_matrix = pose_matrix[:3, :3]
+
+    # Compute quaternion from rotation matrix
+    trace = np.trace(rotation_matrix)
+    if trace > 0:
+        S = np.sqrt(trace + 1.0) * 2  # S = 4 * qw
+        qw = 0.25 * S
+        qx = (rotation_matrix[2, 1] - rotation_matrix[1, 2]) / S
+        qy = (rotation_matrix[0, 2] - rotation_matrix[2, 0]) / S
+        qz = (rotation_matrix[1, 0] - rotation_matrix[0, 1]) / S
+    elif rotation_matrix[0, 0] > rotation_matrix[1, 1] and rotation_matrix[0, 0] > rotation_matrix[2, 2]:
+        S = np.sqrt(1.0 + rotation_matrix[0, 0] - rotation_matrix[1, 1] - rotation_matrix[2, 2]) * 2  # S = 4 * qx
+        qw = (rotation_matrix[2, 1] - rotation_matrix[1, 2]) / S
+        qx = 0.25 * S
+        qy = (rotation_matrix[0, 1] + rotation_matrix[1, 0]) / S
+        qz = (rotation_matrix[0, 2] + rotation_matrix[2, 0]) / S
+    elif rotation_matrix[1, 1] > rotation_matrix[2, 2]:
+        S = np.sqrt(1.0 + rotation_matrix[1, 1] - rotation_matrix[0, 0] - rotation_matrix[2, 2]) * 2  # S = 4 * qy
+        qw = (rotation_matrix[0, 2] - rotation_matrix[2, 0]) / S
+        qx = (rotation_matrix[0, 1] + rotation_matrix[1, 0]) / S
+        qy = 0.25 * S
+        qz = (rotation_matrix[1, 2] + rotation_matrix[2, 1]) / S
+    else:
+        S = np.sqrt(1.0 + rotation_matrix[2, 2] - rotation_matrix[0, 0] - rotation_matrix[1, 1]) * 2  # S = 4 * qz
+        qw = (rotation_matrix[1, 0] - rotation_matrix[0, 1]) / S
+        qx = (rotation_matrix[0, 2] + rotation_matrix[2, 0]) / S
+        qy = (rotation_matrix[1, 2] + rotation_matrix[2, 1]) / S
+        qz = 0.25 * S
+    
+    quaternion = np.array([qw, qx, qy, qz])
+
+    return position, quaternion

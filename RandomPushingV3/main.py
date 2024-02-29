@@ -13,8 +13,8 @@ for i in range(manipulation_attempts):
     #robot.goHome()
 
     # Randomly choose a manipulation type
-    #action = np.random.choice(["push", "pull", "grasp"])
-    action = np.random.choice(["pull"])
+    #action = np.random.choice(["push", "pull", "grasp", "pull_rotate"])
+    action = np.random.choice(["pull_rotate"])
     if action == "push":
         # Try to calculate push motions in different directions until you find a feasible push motion
         while not robot.pushObject():
@@ -26,5 +26,8 @@ for i in range(manipulation_attempts):
 
     elif action == "pull":
         robot.pullObject()
+
+    elif action == "pull_rotate":
+        robot.pullRotateObject(.8)
 
     print("Achieved manipulation number ", i+1)
