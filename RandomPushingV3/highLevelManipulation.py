@@ -44,7 +44,7 @@ class Robot():
         self.action_arena = RectangularArena(arena_pos, width=arena_dims[0], height=arena_dims[1], name="pushArena")
         self.action_arena.display(self.C, color=[.5, .5, .5])
 
-        self.scan_arena = RectangularArena(arena_pos, width=arena_dims[0]+.1, height=arena_dims[1]+.1, name="scanArena")
+        self.scan_arena = RectangularArena(arena_pos - np.array([.15, 0, 0]), width=arena_dims[0]+.15, height=arena_dims[1]+.2, name="scanArena")
         self.scan_arena.display(self.C, color=[1., 1., 1.])
 
         # self.C.addFrame("pivot_wall") \
@@ -69,6 +69,7 @@ class Robot():
             .setContact(0)
         
         self.initial_object_position = initial_object_position
+        self.initial_object_dimensions = object_dimensions
 
 
     def goHome(self):
@@ -103,7 +104,7 @@ class Robot():
         # Update estimated object frame
         point_cloud = o3d.geometry.PointCloud()
         point_cloud.points = o3d.utility.Vector3dVector(point_cloud_)
-        pose_mat = estimate_cube_pose(point_cloud, [.12, .04, .04], add_noise=True, origin=self.initial_object_position, verbose=0)
+        pose_mat = estimate_cube_pose(point_cloud, self.initial_object_dimensions, add_noise=True, origin=self.initial_object_position, verbose=0)
         position, quaternion = extract_position_and_quaternion(pose_mat)
         self.C.getFrame("or1").setPosition(position).setQuaternion(quaternion)
 
@@ -285,10 +286,12 @@ class Robot():
 
         self.gripperOpen()
 
-        self.komo: ry.KOMO = basicKomo(self.C, phases=1, enableCollisions=False)
-        self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], self.obj_pos + np.array([0, self.obj_dims[1]*.5+.05, -.01]))
-        self.komo.addObjective([1], ry.FS.scalarProductYZ, ["table", "l_gripper"], ry.OT.ineq, [-1e1], [.96])
-        self.komo.addObjective([1], ry.FS.scalarProductXZ, ["l_gripper", "table"], ry.OT.eq, [1e1], [1])
+        self.komo: ry.KOMO = basicKomo(self.C, phases=2, enableCollisions=False)
+        end_pos = self.obj_pos + np.array([0, self.obj_dims[1]*.5+.05, -.04 + .04])
+        self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], end_pos + np.array([0, 0, .3]))
+        self.komo.addObjective([2], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], end_pos)
+        self.komo.addObjective([1, 2], ry.FS.scalarProductYZ, ["table", "l_gripper"], ry.OT.ineq, [-1e1], [.96])
+        self.komo.addObjective([1, 2], ry.FS.scalarProductXZ, ["l_gripper", "table"], ry.OT.eq, [1e1], [1])
 
         success = self.moveBlocking(verbose=1)
 
@@ -299,9 +302,9 @@ class Robot():
         return success
     
 
-    def approachPoint(self, point: np.ndarray) -> bool:
+    def approachPoint(self, point: np.ndarray, enableCollisions: bool=True) -> bool:
 
-        self.komo = basicKomo(self.C)
+        self.komo = basicKomo(self.C, enableCollisions=enableCollisions)
         self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], point)
 
         return self.moveBlocking()
@@ -310,50 +313,40 @@ class Robot():
     def pivot(self) -> bool:
         """
         In this function we assume that the object is positioned against a wall
-        and is perpendicular to it.
+        and is also perpendicular to it.
         """
+    
         self.gripperClose()
 
-        initial_pos = self.obj_pos + np.array([self.obj_dims[0]*.5 + .04, 0, 0])
-        success = self.approachPoint(initial_pos)
+        # Approach the inital starting position, here we care about collisions
+        initial_pos = self.obj_pos + np.array([self.obj_dims[0]*.5 + .1, 0, 0])
+        self.komo = basicKomo(self.C)
+        self.komo.addObjective([1], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], initial_pos)
+        self.komo.addObjective([1], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [1., 0., 0.])
+        if not self.moveBlocking(): return False
 
-        if success:
-            # Need to create a wall frame in the init
-            axis_point = self.obj_pos - np.array([self.obj_dims[0]*.5, 0, 0])
-            end_pos = self.obj_pos + np.array([
-                self.obj_dims[2]*.5 - self.obj_dims[0]*.5,
-                0,
-                self.obj_dims[0] - self.obj_dims[2]*.5])
+        # Create helper waypoints and coordinates
+        axis_point = self.obj_pos - np.array([self.obj_dims[0]*.5, 0, 0])
+        end_pos = self.obj_pos + np.array([
+            self.obj_dims[2]*.5 - self.obj_dims[0]*.5,
+            0,
+            self.obj_dims[0] - self.obj_dims[2]*.5])
 
-            createWaypointFrame(self.C, "inital_pivot_pos", initial_pos)
-            createWaypointFrame(self.C, "touch_obj_pivot", initial_pos - np.array([.04, 0, 0]))
-            createWaypointFrame(self.C, "pivot_axis_point", axis_point)
-            createWaypointFrame(self.C, "pivot_end_pos", end_pos, color=[1, 1, 0])
-            dist_to_keep = np.linalg.norm(axis_point - end_pos)
-            gripper_starting_pos = self.C.getFrame("l_gripper").getPosition()
-            
-            self.komo = basicKomo(self.C, phases=1)
-            self.komo = komoStraightPath(self.C, self.komo, ["inital_pivot_pos", "touch_obj_pivot"], [0, 1])
-            success = self.moveBlocking()
+        createWaypointFrame(self.C, "inital_pivot_pos", initial_pos)
+        createWaypointFrame(self.C, "touch_obj_pivot", initial_pos - np.array([.05, 0, 0]))
+        createWaypointFrame(self.C, "pivot_axis_point", axis_point)
+        createWaypointFrame(self.C, "pivot_end_pos", end_pos, color=[1, 1, 0])
+        dist_to_keep = np.linalg.norm(axis_point - end_pos)
+        gripper_starting_pos = self.C.getFrame("l_gripper").getPosition()
 
-            self.komo = basicKomo(self.C, phases=2, slices=35, enableCollisions=False)
-            #self.komo.addObjective([1, 2], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [0])
-            self.komo.addObjective([1, 2], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, .1, 0], gripper_starting_pos)
-            self.komo.addObjective([1, 2], ry.FS.positionDiff, ["l_gripper", "pivot_axis_point"], ry.OT.ineq, [-1], [dist_to_keep -.02])
-            self.komo.addObjective([1, 2], ry.FS.positionDiff, ["l_gripper", "pivot_axis_point"], ry.OT.ineq, [1], [dist_to_keep +.02])
-            self.komo.addObjective([2], ry.FS.positionDiff, ["l_gripper", "pivot_end_pos"], ry.OT.eq, [1e1])
-            print(dist_to_keep)
-            print(np.linalg.norm(self.C.eval(ry.FS.positionDiff, ["pivot_axis_point", "l_gripper"])[0]))
-
-            success = self.moveBlocking()
-            if success:
-                print("did the thing")
-            else:
-                print("Nope")
-            self.C.view(True)
-            return success
-        
-        return False
+        # Pivot motion
+        self.komo = basicKomo(self.C, phases=2, slices=35, enableCollisions=True)
+        self.komo = komoStraightPath(self.C, self.komo, ["inital_pivot_pos", "touch_obj_pivot"], [0, 1])
+        self.komo.addObjective([], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1], [1., 0., 0.])
+        #self.komo.addObjective([1, 2], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, 1e1, 0], gripper_starting_pos)
+        #self.komo.addObjective([1, 2], ry.FS.negDistance, ["l_gripper", "pivot_axis_point"], ry.OT.eq, [1], [-dist_to_keep])
+        self.komo.addObjective([2], ry.FS.positionDiff, ["l_gripper", "pivot_end_pos"], ry.OT.eq, [1e1])
+        return self.moveBlocking()
 
 
     def placeGraspMotion(self, end_position: np.ndarray, x_orientation: str) -> bool:

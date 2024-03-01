@@ -1,5 +1,6 @@
 import numpy as np
 import robotic as ry
+import open3d as o3d
 from typing import Tuple, List
 from arenas import Arena
 """
@@ -46,6 +47,12 @@ def getFilteredPointCloud(bot: ry.BotOp,
         if p[2] > (z_cutoff) and arena.isPointInside(np.array(p)):
             objectpoints.append(p)
             colors.append(rgb[i])
+
+    objectpoints = np.array(objectpoints)
+    pc = o3d.geometry.PointCloud()
+    pc.points = o3d.utility.Vector3dVector(objectpoints)
+    pc, _ = pc.remove_radius_outlier(nb_points=20, radius=.02)
+    objectpoints = np.asarray(pc.points).tolist()
 
     return objectpoints, colors
 

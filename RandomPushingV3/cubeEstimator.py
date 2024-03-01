@@ -14,7 +14,7 @@ def estimate_cube_pose(point_cloud: np.ndarray, dimensions: np.ndarray, add_nois
     for x in range(x_count):
         for y in range(y_count):
             for z in range(z_count):
-                if x == 0 or y == 0 or z == 0 or x == x_count-1 or y == y_count-1 or z == z_count-1:
+                if x == 0 or y == 0 or x == x_count-1 or y == y_count-1 or z == z_count-1:
                     if add_noise:
                         # Should make this look more like the realsense scan
                         new_point = np.array([x*step_size + np.random.random()*step_size,
