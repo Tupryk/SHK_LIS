@@ -44,14 +44,14 @@ class Robot():
         self.action_arena = RectangularArena(arena_pos, width=arena_dims[0], height=arena_dims[1], name="pushArena")
         self.action_arena.display(self.C, color=[.5, .5, .5])
 
-        self.scan_arena = RectangularArena(arena_pos, width=arena_dims[0]+.2, height=arena_dims[1]+.2, name="scanArena")
+        self.scan_arena = RectangularArena(arena_pos, width=arena_dims[0]+.1, height=arena_dims[1]+.1, name="scanArena")
         self.scan_arena.display(self.C, color=[1., 1., 1.])
 
-        self.C.addFrame("pivot_wall") \
-            .setShape(ry.ST.ssBox, [.05, arena_dims[0], .3, .0001]) \
-            .setPosition([arena_pos + np.array([arena_dims[0]*-.5 - .025, 0, .15])]) \
-            .setColor([1, 0, 0, .5]) \
-            .setContact(1)
+        # self.C.addFrame("pivot_wall") \
+        #     .setShape(ry.ST.ssBox, [.05, arena_dims[0], .3, .0001]) \
+        #     .setPosition([arena_pos + np.array([arena_dims[0]*-.5 - .025, 0, .15])]) \
+        #     .setColor([1, 0, 0, .5]) \
+        #     .setContact(1)
         
         initial_object_position[2] -= .02
         self.C.addFrame("objective_pos") \
@@ -61,10 +61,14 @@ class Robot():
             .setContact(0)
         
         # A bit redundant to have this, self.obj_pos, self.obj_dims and "predicted_obj" frame. Will have to fix...
-        self.C.addFrame("predicted_obj_frame", "objective_pos") \
+        self.C.addFrame("or1").setPosition([0, 0, 0])
+        self.C.addFrame("predicted_obj_frame", "or1") \
             .setShape(ry.ST.ssBox, [*object_dimensions, .0001]) \
+            .setRelativePosition(initial_object_position) \
             .setColor([1, 0, 1, .5]) \
             .setContact(0)
+        
+        self.initial_object_position = initial_object_position
 
 
     def goHome(self):
@@ -82,7 +86,9 @@ class Robot():
         ### Look towards the object (for now from a non specified angle)
         self.komo = basicKomo(self.C)
         self.komo.addControlObjective([], 0, .1)
-        self.komo.addObjective([1.], ry.FS.positionRel, ["predicted_obj", "cameraWrist"], ry.OT.eq, [1e1], [.0, .0, .4])
+        self.komo.addObjective([1.], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [np.cos(np.deg2rad(100))])
+        self.komo.addObjective([1.], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [1e1], [np.cos(np.deg2rad(60))])
+        self.komo.addObjective([1.], ry.FS.positionRel, ["predicted_obj", "cameraWrist"], ry.OT.eq, [1e1], [.0, .0, .3])
         self.moveBlocking()
 
         ### Take the point cloud and update the predicted object position
@@ -97,13 +103,9 @@ class Robot():
         # Update estimated object frame
         point_cloud = o3d.geometry.PointCloud()
         point_cloud.points = o3d.utility.Vector3dVector(point_cloud_)
-        pose_mat = estimate_cube_pose(point_cloud, [.12, .04, .04], verbose=0, add_noise=True)
+        pose_mat = estimate_cube_pose(point_cloud, [.12, .04, .04], add_noise=True, origin=self.initial_object_position, verbose=0)
         position, quaternion = extract_position_and_quaternion(pose_mat)
-        self.C.getFrame("predicted_obj_frame").setPosition(position).setRelativeQuaternion(quaternion)
-<<<<<<< HEAD
-        return point_cloud
-=======
->>>>>>> ef9027ffc15b9bd953e5f82610fcd91f9e87a580
+        self.C.getFrame("or1").setPosition(position).setQuaternion(quaternion)
 
 
     def pushObject(self, push_end_position: np.ndarray=np.array([]), start_distance: float=.1, save_as: str="") -> bool:
