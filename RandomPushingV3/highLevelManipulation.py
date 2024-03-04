@@ -23,7 +23,7 @@ class Robot():
                  object_dimensions: np.ndarray=np.array([.12, .04, .04])):
         
         self.C = setupConfig(real_robot, initial_object_position, object_dimensions)
-        self.bot = startupRobot(self.C, real_robot)
+
         self.komo = None
         self.arena = None
         self.max_velocity = max_velocity
@@ -34,8 +34,6 @@ class Robot():
         self.gripperWidth = .075
         self.table_height = .651
         self.gripper_z_depth = .01
-
-        createWaypointFrame(self.C, "predicted_obj", initial_object_position)
 
         arena_pos = np.array([-.5, -.1, .69])
         arena_pos[2] = self.table_height
@@ -49,9 +47,13 @@ class Robot():
 
         # self.C.addFrame("pivot_wall") \
         #     .setShape(ry.ST.ssBox, [.05, arena_dims[0], .3, .0001]) \
-        #     .setPosition([arena_pos + np.array([arena_dims[0]*-.5 - .025, 0, .15])]) \
-        #     .setColor([1, 0, 0, .5]) \
+        #     .setPosition([initial_object_position[0] - .025 - object_dimensions[0]*.5, arena_pos[1], arena_pos[2]+.15]) \
+        #     .setColor([.5, .5, .5]) \
         #     .setContact(1)
+        
+        self.bot = startupRobot(self.C, real_robot)
+
+        createWaypointFrame(self.C, "predicted_obj", initial_object_position)
         
         initial_object_position[2] -= .02
         self.C.addFrame("objective_pos") \
@@ -89,7 +91,7 @@ class Robot():
         self.komo.addControlObjective([], 0, .1)
         self.komo.addObjective([1.], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [np.cos(np.deg2rad(100))])
         self.komo.addObjective([1.], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [1e1], [np.cos(np.deg2rad(60))])
-        self.komo.addObjective([1.], ry.FS.positionRel, ["predicted_obj", "cameraWrist"], ry.OT.eq, [1e1], [.0, .0, .3])
+        self.komo.addObjective([1.], ry.FS.positionRel, ["predicted_obj", "cameraWrist"], ry.OT.eq, [1e1], [.0, .0, .4])
         self.moveBlocking()
 
         ### Take the point cloud and update the predicted object position
@@ -230,8 +232,7 @@ class Robot():
 
         ### Perform pull motion towards the endpoint
         self.bot.sync(self.C, 0)
-        z_pos = self.C.getFrame("l_gripper").getPosition()[2] -.006
-        pull_end_position[2] = z_pos
+        z_pos = self.C.getFrame("l_gripper").getPosition()[2]
         createWaypointFrame(self.C, "pull_end_pos", pull_end_position)
 
         self.komo: ry.KOMO = basicKomo(self.C, phases=1, enableCollisions=self.on_real, slices=35)
@@ -242,6 +243,7 @@ class Robot():
         success = self.moveBlocking()
 
         if success:
+            pull_end_position[2] = self.obj_pos[2]
             self.C.getFrame("predicted_obj").setPosition(pull_end_position)
             self.obj_pos = pull_end_position
         
@@ -319,31 +321,35 @@ class Robot():
         self.gripperClose()
 
         # Create helper waypoints and coordinates
-        axis_point = self.obj_pos - np.array([self.obj_dims[0]*.5, 0, 0])
-        end_pos = self.obj_pos + np.array([
-            self.obj_dims[2]*.5 - self.obj_dims[0]*.5,
-            0,
-            self.obj_dims[0] - self.obj_dims[2]*.5])
+        axis_point = self.obj_pos - np.array([self.obj_dims[0]*.5, 0, self.obj_dims[2]*.5 - .035])
         
-        initial_pos = self.obj_pos + np.array([self.obj_dims[0]*.5 + .1, 0, 0])
+        initial_pos = self.obj_pos + np.array([self.obj_dims[0]*.5 + .1, 0, self.obj_dims[2]*.5 - .035])
+        contact_point = initial_pos - np.array([.1, 0, 0])
+        end_pos = self.obj_pos + np.array([
+            self.obj_dims[2]*.5 - self.obj_dims[0]*.5, 0, 0])
 
         self.approachPoint(initial_pos + np.array([0, 0, .15]))
 
-        createWaypointFrame(self.C, "inital_pivot_pos", initial_pos)
-        createWaypointFrame(self.C, "touch_obj_pivot", initial_pos - np.array([.05, 0, 0]))
-        createWaypointFrame(self.C, "pivot_axis_point", axis_point)
-        #createWaypointFrame(self.C, "pivot_end_pos", end_pos, color=[1, 1, 0])
-        dist_to_keep = np.linalg.norm(axis_point - end_pos)
+        createWaypointFrame(self.C, "inital_pivot_pos", initial_pos, color=[1, 0, 0])
+        createWaypointFrame(self.C, "touch_obj_pivot", contact_point, color=[0, 1, 0])
+        createWaypointFrame(self.C, "pivot_axis_point", axis_point, color=[0, 0, 1])
+        dist_to_keep = np.linalg.norm(axis_point - contact_point)
 
         # Pivot motion
-        self.komo = basicKomo(self.C, phases=3, slices=20, enableCollisions=True)
+        self.komo = basicKomo(self.C, phases=3, slices=30, enableCollisions=True)
 
-        self.komo.addObjective([1, 3], ry.FS.scalarProductXZ, ["table", "l_gripper"], ry.OT.ineq, [-1e1], [.8])
+        #self.komo.addObjective([1, 3], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.9])
+        self.komo.addObjective([1, 3], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0., 0., 1.])
+        self.komo.addObjective([1, 3], ry.FS.vectorY, ["l_gripper"], ry.OT.eq, [1e1], [1., 0., 0.])
+        #self.komo.addObjective([1, 3], ry.FS.scalarProductYY, ["l_gripper", "table"], ry.OT.eq, [1e1], [0.])
 
         self.komo = komoStraightPath(self.C, self.komo, ["inital_pivot_pos", "touch_obj_pivot"], [1, 2])
-        self.komo.addObjective([2, 3], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, 1e1, 0], initial_pos)
-        self.komo.addObjective([2, 3], ry.FS.negDistance, ["l_gripper", "pivot_axis_point"], ry.OT.eq, [1], [-dist_to_keep])
-        self.komo.addObjective([3], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], end_pos)
+        #self.komo.addObjective([1], ry.FS.positionDiff, ["l_gripper", "inital_pivot_pos"], ry.OT.eq, [1e1])
+        #self.komo.addObjective([2], ry.FS.positionDiff, ["l_gripper", "touch_obj_pivot"], ry.OT.eq, [1e1])
+        
+        self.komo.addObjective([2, 3], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, 1, 0], initial_pos)
+        self.komo.addObjective([2, 3], ry.FS.negDistance, ["l_gripper", "pivot_axis_point"], ry.OT.eq, [1e1], [-dist_to_keep])
+        self.komo.addObjective([3], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1, 0, 0], end_pos)
         return self.moveBlocking(verbose=1)
 
 
