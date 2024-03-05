@@ -102,6 +102,9 @@ class Robot():
         self.C.getFrame("predicted_obj").setPosition(mid_point)
         self.obj_pos = mid_point
         self.obj_dims = dims
+        # Make up for the table cutoff
+        self.obj_dims[2] += .014
+        self.obj_pos[2] -= .007
 
         # Update estimated object frame
         point_cloud = o3d.geometry.PointCloud()
@@ -321,36 +324,51 @@ class Robot():
         self.gripperClose()
 
         # Create helper waypoints and coordinates
-        axis_point = self.obj_pos - np.array([self.obj_dims[0]*.5, 0, self.obj_dims[2]*.5 - .035])
+        axis_point = self.obj_pos + np.array([-self.obj_dims[0]*.5, 0, self.obj_dims[2]*.5 - .04])
         
-        initial_pos = self.obj_pos + np.array([self.obj_dims[0]*.5 + .1, 0, self.obj_dims[2]*.5 - .035])
+        initial_pos = self.obj_pos + np.array([self.obj_dims[0]*.5 + .1, 0, self.obj_dims[2]*.5 - .04])
         contact_point = initial_pos - np.array([.1, 0, 0])
         end_pos = self.obj_pos + np.array([
-            self.obj_dims[2]*.5 - self.obj_dims[0]*.5, 0, 0])
+            self.obj_dims[2]*.5 - self.obj_dims[0]*.5, 0, self.obj_dims[0] - self.obj_dims[2]*.5-.025])
 
         self.approachPoint(initial_pos + np.array([0, 0, .15]))
 
         createWaypointFrame(self.C, "inital_pivot_pos", initial_pos, color=[1, 0, 0])
         createWaypointFrame(self.C, "touch_obj_pivot", contact_point, color=[0, 1, 0])
         createWaypointFrame(self.C, "pivot_axis_point", axis_point, color=[0, 0, 1])
-        dist_to_keep = np.linalg.norm(axis_point - contact_point)
+
+        mid_point0 = contact_point + np.array([0, 0, .05])
+        dist_to_keep = np.linalg.norm(axis_point - mid_point0)
+        angle = np.deg2rad(32)
+        rot = np.array([[np.cos(angle), 0, np.sin(angle)],
+                        [0., 1., 0.],
+                        [-np.sin(angle), 0, np.cos(angle)]])
+        mid_point1 = rot.T @ (mid_point0 - axis_point) + axis_point
+    
+        createWaypointFrame(self.C, "pivot_mid_point0", mid_point0, color=[1, 1, 0])
+        createWaypointFrame(self.C, "pivot_mid_point1", mid_point1, color=[1, 1, 0])
+        createWaypointFrame(self.C, "pivot_end_point", end_pos, color=[1, 1, 0])
 
         # Pivot motion
-        self.komo = basicKomo(self.C, phases=3, slices=30, enableCollisions=True)
+        self.komo = basicKomo(self.C, phases=5, slices=20, enableCollisions=True)
 
-        #self.komo.addObjective([1, 3], ry.FS.scalarProductZZ, ["l_gripper", "table"], ry.OT.ineq, [-1e1], [.9])
-        self.komo.addObjective([1, 3], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0., 0., 1.])
-        self.komo.addObjective([1, 3], ry.FS.vectorY, ["l_gripper"], ry.OT.eq, [1e1], [1., 0., 0.])
-        #self.komo.addObjective([1, 3], ry.FS.scalarProductYY, ["l_gripper", "table"], ry.OT.eq, [1e1], [0.])
+        self.komo.addObjective([1, 5], ry.FS.vectorZ, ["l_gripper"], ry.OT.eq, [1e1], [0., 0., 1.])
+        self.komo.addObjective([1, 5], ry.FS.vectorY, ["l_gripper"], ry.OT.eq, [1e1], [1., 0., 0.])
 
         self.komo = komoStraightPath(self.C, self.komo, ["inital_pivot_pos", "touch_obj_pivot"], [1, 2])
-        #self.komo.addObjective([1], ry.FS.positionDiff, ["l_gripper", "inital_pivot_pos"], ry.OT.eq, [1e1])
-        #self.komo.addObjective([2], ry.FS.positionDiff, ["l_gripper", "touch_obj_pivot"], ry.OT.eq, [1e1])
+
+        self.komo = komoStraightPath(self.C, self.komo, ["touch_obj_pivot", "pivot_mid_point0"], [2, 3], gotoPoints=False)
+        self.komo.addObjective([3], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], mid_point0)
         
-        self.komo.addObjective([2, 3], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, 1, 0], initial_pos)
-        self.komo.addObjective([2, 3], ry.FS.negDistance, ["l_gripper", "pivot_axis_point"], ry.OT.eq, [1e1], [-dist_to_keep])
-        self.komo.addObjective([3], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1, 0, 0], end_pos)
-        return self.moveBlocking(verbose=1)
+        self.komo.addObjective([3, 4], ry.FS.position, ["l_gripper"], ry.OT.eq, [0, 1, 0], initial_pos)
+        self.komo.addObjective([3, 4], ry.FS.negDistance, ["l_gripper", "pivot_axis_point"], ry.OT.eq, [1e1], [-dist_to_keep])
+        self.komo.addObjective([4], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1, 0, 0], mid_point1)
+
+        self.komo = komoStraightPath(self.C, self.komo, ["pivot_mid_point1", "pivot_end_point"], [4, 5], gotoPoints=False)
+        self.komo.addObjective([5], ry.FS.position, ["l_gripper"], ry.OT.eq, [1e1], end_pos)
+
+        # TODO: update pos and dim values of the object
+        return self.moveBlocking(verbose=3, speed=.5)
 
 
     def placeGraspMotion(self, end_position: np.ndarray, x_orientation: str) -> bool:
@@ -495,7 +513,7 @@ class Robot():
         while not self.bot.gripperDone(ry._left):
             self.bot.sync(self.C)
 
-    def moveBlocking(self, verbose: int=0) -> bool:
+    def moveBlocking(self, verbose: int=0, speed: float=1.) -> bool:
     
         ret = ry.NLP_Solver() \
             .setProblem(self.komo.nlp()) \
@@ -519,7 +537,7 @@ class Robot():
     def moveBlockingAndCheckForce(self,
                                   maxForceAllowed: float=np.nan,
                                   speed: float=1.,
-                                  verbose: int=0) -> Tuple[bool, list, list]:
+                                  verbose: int=0, compliance: bool=False) -> Tuple[bool, list, list]:
         
         """
         Unlike moveBlocking, this function also measures the forces applied
@@ -555,6 +573,8 @@ class Robot():
                 
                 # Measure force on the direction of the Y vector of the gripper
                 y, J = self.C.eval(ry.FS.position, ['l_gripper'], [[0, 1, 0]])
+                if compliance:
+                    self.bot.setCompliance(J, .5)
                 J = np.linalg.pinv(J.T)
                 tauExternal = self.bot.get_tauExternal()
                 F = np.abs(J @ tauExternal)
