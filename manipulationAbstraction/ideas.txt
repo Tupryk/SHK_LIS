@@ -1,0 +1,2 @@
+- Make it a bit more clear when and why you need helpers in __init__
+- Rename no_collision to keep distance, since "accumulatedCollisions" already makes sure that there are no collisions
