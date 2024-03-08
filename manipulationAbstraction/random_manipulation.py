@@ -7,45 +7,51 @@ import robot_execution as robex
 C = ry.Config()
 C.addFile(ry.raiPath('../rai-robotModels/scenarios/pandaSingle.g'))
 
-C.addFrame("box", "table") \
-    .setJoint(ry.JT.rigid) \
-    .setShape(ry.ST.ssBox, [.15,.06,.06,.005]) \
-    .setRelativePosition([-.0,.3-.055,.095]) \
-    .setContact(1) \
-    .setMass(.1)
+midpoint = np.array([-0.105, 0.4, 0.745])
+# C.addFrame("obstacle") \
+#     .setPosition(midpoint) \
+#     .setShape(ry.ST.ssBox, size=[0.09, 0.45, 0.23, 0.001]) \
+#     .setColor([0, 0, 1]) \
+#     .setContact(1) \
+#     .setMass(.1)
 
-# C.addFrame("obstacle", "table") \
-#     .setShape(ry.ST.ssBox, [.06,.15,.06,.005]) \
-#     .setColor([.1]) \
-#     .setRelativePosition([-.15,.3-.055,.095]) \
-#     .setContact(1)
+for i in range(3):
+    box_name = 'box{}'.format(i + 1)
 
-C.delFrame("panda_collCameraWrist")
+    color = [0, 0, 0]
+    color[i] = 1
+    position_val1 = 0.1 * (i - 5)
+    C.addFrame(box_name) \
+        .setPosition([position_val1, 0.05, 0.705]) \
+        .setShape(ry.ST.ssBox, size=[0.04, 0.04, 0.12, 0.001]) \
+        .setColor(color) \
+        .setContact(1) \
+        .setMass(.1)
+
+#C.delFrame("panda_collCameraWrist")
 
 # for convenience, a few definitions:
-qHome = C.getJointState()
 gripper = "l_gripper"
 palm = "l_palm"
-box = "box"
+box = "box1"
 table = "table"
-boxSize = C.frame(box).getSize()
 
 C.view()
 
-def pick_place(graspDirection, placeDirection, placePosition, info) -> bool:
+def pick_place(graspDirection, placeDirection, placePosition, object_, info) -> bool:
     # Define the joint states at grasp and place
     M = manip.ManipulationModelling(C, info, helpers=[gripper])
-    M.setup_pick_and_place_waypoints(gripper, box, homing_scale=1e-1)
-    M.grasp_box(1., gripper, box, palm, graspDirection)
-    M.place_box(2., box, table, palm, placeDirection)
-    M.target_relative_xy_position(2., box, table, placePosition)
+    M.setup_pick_and_place_waypoints(gripper, object_, homing_scale=1e-1)
+    M.grasp_box(1., gripper, object_, palm, graspDirection)
+    M.place_box(2., object_, table, palm, placeDirection)
+    M.target_relative_xy_position(2., object_, table, placePosition)
     M.solve()
     if not M.feasible:
         return False
 
     # Define the in between joint states when going for the grasp
     M1 = M.sub_motion(0)
-    M1.no_collision([.3,.7], palm, box, margin=.05)
+    M1.no_collision([.3,.7], palm, object_, margin=.05)
     M1.retract([.0, .2], gripper)
     M1.approach([.8, 1.], gripper)
     path1 = M1.solve()
@@ -54,22 +60,60 @@ def pick_place(graspDirection, placeDirection, placePosition, info) -> bool:
 
     # Define the in between joint states when placing the object
     M2 = M.sub_motion(1)
-    M2.no_collision([], table, box)
+    M2.no_collision([], table, object_)
+    M2.no_collision([.2, .8], table, object_, .04)
     path2 = M2.solve()
     if not M2.feasible:
         return False
 
-    M1.play(C)
-    C.attach(gripper, box)
-    M2.play(C)
-    C.attach(table, box)
+    # M1.play(C)
+    # C.attach(gripper, box)
+    # M2.play(C)
+    # C.attach(table, box)
 
-    # robot = robex.Robot(C)
-    # robot.execute_path_blocking(C, path1)
-    # robot.grasp(C)
-    # robot.execute_path_blocking(C, path2)
+    robot = robex.Robot(C, on_real=True)
+    robot.execute_path_blocking(C, path1)
+    robot.grasp(C)
+    C.attach(gripper, object_)
+    robot.execute_path_blocking(C, path2)
+    C.attach(table, object_)
+    robot.release(C)
 
     return True
+
+
+def build_house():
+    paths = []
+    for i, box in enumerate(["box1", "box2", "box3"]):
+        M = manip.ManipulationModelling(C, info, helpers=[gripper])
+        M.setup_pick_and_place_waypoints(gripper, object_, homing_scale=1e-1)
+        M.grasp_box(1., gripper, object_, palm, graspDirection)
+        M.place_box(2., object_, table, palm, placeDirection)
+        M.target_relative_xy_position(2., object_, table, placePosition)
+        M.solve()
+        if not M.feasible:
+            return False
+
+        # Define the in between joint states when going for the grasp
+        M1 = M.sub_motion(0)
+        M1.no_collision([.3,.7], palm, object_, margin=.05)
+        M1.retract([.0, .2], gripper)
+        M1.approach([.8, 1.], gripper)
+        path1 = M1.solve()
+        if not M1.feasible:
+            return False
+
+        # Define the in between joint states when placing the object
+        M2 = M.sub_motion(1)
+        M2.no_collision([], table, object_)
+        M2.no_collision([.2, .8], table, object_, .04)
+        path2 = M2.solve()
+        if not M2.feasible:
+            return False
+
+
+def pull(object_, info) -> bool:
+    return False
 
 
 def push(pushPosition, info) -> bool:
@@ -77,6 +121,7 @@ def push(pushPosition, info) -> bool:
     M.setup_pick_and_place_waypoints(gripper, box, 1e-1)
     M.straight_push([1.,2.], box, gripper, table)
     M.komo.addObjective([2.], ry.FS.position, [box], ry.OT.eq, 1e1*np.array([[1,0,0],[0,1,0]]), pushPosition)
+    M.place_box(2, object_, table, palm)
     M.solve()
     if not M.feasible:
         return False
@@ -104,24 +149,35 @@ def push(pushPosition, info) -> bool:
     M2.play(C, 1.)
     C.attach(table, box)
 
+    # robot = robex.Robot(C, on_real=True)
+    # robot.grasp(C)
+    # robot.execute_path_blocking(C, path1)
+    # C.attach(gripper, box)
+    # robot.execute_path_blocking(C, path2)
+    # C.attach(table, box)
+
     return True
 
+robot = robex.Robot(C, on_real=True)
+robot.goHome(C)
+del robot
 
-attempt_count = 20
+attempt_count = 100
 data = []
 for l in range(attempt_count):
 
-    # action = np.random.choice(["grasp", "push"])
+    #action = np.random.choice(["grasp", "push"])
     action = np.random.choice(["push"])
     if action == "grasp":
-        graspDirection = random.choice(['y', 'z']) #'x' not possible: box too large
+        graspDirection = random.choice(['x', 'y', 'z'])
         placeDirection = random.choice(['x', 'y', 'z', 'xNeg', 'yNeg', 'zNeg'])
-        placePosition = [.2 + np.random.random()*.2 -.1, .3 + np.random.random()*.2 -.1]
+        placePosition = midpoint + np.random.uniform(-.1, .1, size=3)
+        object_ = np.random.choice([f"box{i+1}" for i in range(3)])
         info = f'placement {l}: grasp {graspDirection} place {placeDirection}'
-        success = pick_place(graspDirection, placeDirection, placePosition, info)
+        success = pick_place(graspDirection, placeDirection, placePosition, object_, info)
 
     elif action == "push":
-        pushPosition = .4*np.random.rand(3) - .2+np.array([.0,.3,.0])
+        pushPosition = midpoint + np.random.uniform(-.1, .1, size=3)
         info = f'push {l}'
         success = push(pushPosition, info)
 

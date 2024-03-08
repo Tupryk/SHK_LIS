@@ -14,6 +14,10 @@ class Robot():
             self.bot.sync(C, .1)
 
 
+    def goHome(self, C: ry.Config):
+        self.bot.home(C)
+
+
     def execute_path_blocking(self,
                               C: ry.Config,
                               path: np.ndarray,
@@ -66,4 +70,9 @@ class Robot():
     def grasp(self, C: ry.Config):
         self.bot.gripperClose(ry._left)
         while not self.bot.gripperDone(ry._left):
-            self.bot.sync(C)
+            self.bot.sync(C, .1)
+
+    def release(self, C: ry.Config):
+        self.bot.gripperMove(ry._left, .078, .4)
+        while not self.bot.gripperDone(ry._left):
+            self.bot.sync(C, .1)
