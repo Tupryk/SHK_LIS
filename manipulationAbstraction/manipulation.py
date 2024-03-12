@@ -262,49 +262,31 @@ class ManipulationModelling():
         #obj end orientation: unchanged
         self.komo.addObjective([times[1]], ry.FS.quaternion, [obj], ry.OT.eq, [1e1], [], 1); #qobjPose.rot.getArr4d())
 
-    def straight_pull(self, times, obj, gripper, table):
+    def pull(self, times, obj, gripper, table):
         self.add_helper_frame(ry.JT.transXYPhi, table, '_pull_end', obj)
         self.komo.addObjective([times[0]], ry.FS.vectorZ, [gripper], ry.OT.eq, [1e1], np.array([0,0,1]))
         self.komo.addObjective([times[1]], ry.FS.vectorZ, [gripper], ry.OT.eq, [1e1], np.array([0,0,1]))
         self.komo.addObjective([times[0]], ry.FS.vectorZ, [obj], ry.OT.eq, [1e1], np.array([0,0,1]))
         self.komo.addObjective([times[1]], ry.FS.vectorZ, [obj], ry.OT.eq, [1e1], np.array([0,0,1]))
         self.komo.addObjective([times[1]], ry.FS.positionDiff, [obj, '_pull_end'], ry.OT.eq, [1e1])
-        self.komo.addObjective([times[0]], ry.FS.positionRel, [gripper, obj], ry.OT.eq, [1e1], np.array([0, 0, .025])) # height of obj
-
-        # #start & end helper frames
-        # self.add_helper_frame(ry.JT.hingeZ, table, '_pull_start', obj)
-        # self.add_helper_frame(ry.JT.transXYPhi, table, '_pull_end', obj)
-
-        # #-- couple both frames symmetricaly
-        # #aligned orientation
-        # self.komo.addObjective([times[0]], ry.FS.vectorYDiff, ['_pull_start', '_pull_end'], ry.OT.eq, [1e1])
-        # #aligned position
-        # self.komo.addObjective([times[0]], ry.FS.positionRel, ['_pull_end', '_pull_start'], ry.OT.eq, 1e1*np.array([[1., 0., 0.], [0., 0., 1.]]))
-        # self.komo.addObjective([times[0]], ry.FS.positionRel, ['_pull_start', '_pull_end'], ry.OT.eq, 1e1*np.array([[1., 0., 0.], [0., 0., 1.]]))
-        # #at least 2cm appart, positivenot !not  direction
-        # self.komo.addObjective([times[0]], ry.FS.positionRel, ['_pull_end', '_pull_start'], ry.OT.ineq, -1e2*np.array([[0., 1., 0.]]), [.0, .02, .0])
-        # self.komo.addObjective([times[0]], ry.FS.positionRel, ['_pull_start', '_pull_end'], ry.OT.ineq, 1e2*np.array([[0., 1., 0.]]), [.0, -.02, .0])
-
-        # # #gripper touch
-        # # self.komo.addObjective([times[0]], ry.FS.negDistance, [gripper, obj], ry.OT.eq, [1e1], [.01])
-        # #gripper start position
-        # self.komo.addObjective([times[0]], ry.FS.positionRel, [gripper, '_pull_start'], ry.OT.eq, [1e1], np.array([0, 0, .025])) # height of obj
-        # # self.komo.addObjective([times[0]], ry.FS.positionRel, [gripper, '_pull_start'], ry.OT.ineq, 1e1*np.array([[0., 1., 0.]]), [.0, -.02, .0])
-        # #gripper start orientation
-        # # self.komo.addObjective([times[0]], ry.FS.scalarProductYY, [gripper, '_pull_start'], ry.OT.ineq, [-1e1], [.2])
-        # # self.komo.addObjective([times[0]], ry.FS.scalarProductYZ, [gripper, '_pull_start'], ry.OT.ineq, [-1e1], [.2])
-        # self.komo.addObjective([times[0]], ry.FS.vectorZDiff, [gripper, '_pull_start'], ry.OT.eq, [1e1])
-
-        # #obj end position
-        # self.komo.addObjective([times[1]], ry.FS.positionDiff, [obj, '_pull_end'], ry.OT.eq, [1e1])
-        # #obj end orientation: unchanged
-        #self.komo.addObjective([times[1]], ry.FS.quaternion, [obj], ry.OT.eq, [1e1], [], 1); #qobjPose.rot.getArr4d())
+        self.komo.addObjective([times[0]], ry.FS.positionRel, [gripper, obj], ry.OT.eq, 1e1*np.array([[1., 0., 0.], [0., 1., 0.]]), np.array([0, 0, 0]))
+        self.komo.addObjective([times[0]], ry.FS.negDistance, [gripper, obj], ry.OT.eq, [1e1], [-.005])
 
     def no_collision(self, time_interval, obj1, obj2, margin=.001):
         """
         inequality on distance between two objects
         """
         self.komo.addObjective(time_interval, ry.FS.negDistance, [obj1, obj2], ry.OT.ineq, [1e1], [-margin])
+
+    def no_collisions(self, time_interval, objs, margin=.001):
+        """
+        inequality on distance between multiple objects
+        """
+        while len(objs) > 1:
+            comp = objs[0]
+            del objs[0]
+            for obj in objs:
+                self.komo.addObjective(time_interval, ry.FS.negDistance, [comp, obj], ry.OT.ineq, [1e1], [-margin])
 
     def switch_pick():
         """
