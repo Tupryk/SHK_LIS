@@ -22,10 +22,13 @@ class ManipulationModelling():
         self.komo: ry.KOMO=None
 
     def setup_inverse_kinematics(self, homing_scale=1e-1, accumulated_collisions=True, quaternion_norms=False):
+        self.setup_n_point_inverse_kinematics(1, homing_scale, accumulated_collisions, quaternion_norms)
+
+    def setup_n_point_inverse_kinematics(self, phases, homing_scale=1e-1, accumulated_collisions=True, quaternion_norms=False):
         """
         setup a 1 phase single step problem
         """
-        self.komo = ry.KOMO(self.C, 1., 1, 0, accumulated_collisions)
+        self.komo = ry.KOMO(self.C, phases, 1, 0, accumulated_collisions)
         self.komo.addControlObjective([], order=0, scale=homing_scale)
         if quaternion_norms:
             self.komo.addQuaternionNorms()
