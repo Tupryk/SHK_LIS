@@ -22,10 +22,13 @@ class ManipulationModelling():
         self.komo: ry.KOMO=None
 
     def setup_inverse_kinematics(self, homing_scale=1e-1, accumulated_collisions=True, quaternion_norms=False):
+        self.setup_n_point_inverse_kinematics(1, homing_scale, accumulated_collisions, quaternion_norms)
+
+    def setup_n_point_inverse_kinematics(self, phases, homing_scale=1e-1, accumulated_collisions=True, quaternion_norms=False):
         """
         setup a 1 phase single step problem
         """
-        self.komo = ry.KOMO(self.C, 1., 1, 0, accumulated_collisions)
+        self.komo = ry.KOMO(self.C, phases, 1, 0, accumulated_collisions)
         self.komo.addControlObjective([], order=0, scale=homing_scale)
         if quaternion_norms:
             self.komo.addQuaternionNorms()
@@ -264,13 +267,15 @@ class ManipulationModelling():
 
     def pull(self, times, obj, gripper, table):
         self.add_helper_frame(ry.JT.transXYPhi, table, '_pull_end', obj)
+        
         self.komo.addObjective([times[0]], ry.FS.vectorZ, [gripper], ry.OT.eq, [1e1], np.array([0,0,1]))
         self.komo.addObjective([times[1]], ry.FS.vectorZ, [gripper], ry.OT.eq, [1e1], np.array([0,0,1]))
         self.komo.addObjective([times[0]], ry.FS.vectorZ, [obj], ry.OT.eq, [1e1], np.array([0,0,1]))
         self.komo.addObjective([times[1]], ry.FS.vectorZ, [obj], ry.OT.eq, [1e1], np.array([0,0,1]))
-        self.komo.addObjective([times[1]], ry.FS.positionDiff, [obj, '_pull_end'], ry.OT.eq, [1e1])
+
         self.komo.addObjective([times[0]], ry.FS.positionRel, [gripper, obj], ry.OT.eq, 1e1*np.array([[1., 0., 0.], [0., 1., 0.]]), np.array([0, 0, 0]))
         self.komo.addObjective([times[0]], ry.FS.negDistance, [gripper, obj], ry.OT.eq, [1e1], [-.005])
+        self.komo.addObjective([times[1]], ry.FS.positionDiff, [obj, '_pull_end'], ry.OT.eq, [1e1])
 
     def no_collision(self, time_interval, obj1, obj2, margin=.001):
         """
