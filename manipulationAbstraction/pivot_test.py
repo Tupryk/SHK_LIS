@@ -19,9 +19,7 @@ C.addFrame("box") \
 gripper = "l_gripper"
 palm = "l_palm"
 table = "table"
-ON_REAL = False
-
-C.view(True)
+ON_REAL = True
 
 
 def pivot(object_, info="pivot") -> bool:
@@ -69,7 +67,7 @@ def pivot(object_, info="pivot") -> bool:
         .setColor([1, 0, 0])
     M2 = manip.ManipulationModelling(C, info, ['l_gripper'])
     M2.setup_point_to_point_motion(pose0[-1], pose1[-1])
-    M2.komo.addObjective([.1, .9], ry.FS.negDistance, ["l_gripper", "m"], ry.OT.eq, [-.1])
+    M2.komo.addObjective([], ry.FS.negDistance, ["l_gripper", "m"], ry.OT.eq, [-.1])
     path2 = M2.solve(verbose=0)
     if not M2.feasible:
         return False
@@ -79,7 +77,7 @@ def pivot(object_, info="pivot") -> bool:
     C.setJointState(qStart)
 
     if ON_REAL:
-        robot = robex.Robot(C, on_real=True)
+        robot = robex.Robot(C, on_real=False)
         robot.grasp(C)
         robot.execute_path_blocking(C, path1)
         robot.execute_path_blocking(C, path2)
@@ -90,7 +88,6 @@ def pivot(object_, info="pivot") -> bool:
     C.getFrame(object_).setQuaternion([np.pi*.5, np.pi*.5, 0, 0])
     new_pos = C.getFrame(object_).getPosition() + np.array([0, .04, .04])
     C.getFrame(object_).setPosition(new_pos)
-    C.view(True)
 
     return True
 
