@@ -384,13 +384,13 @@ class ManipulationModelling():
             self.komo.addObjective([times[1]], ry.FS.positionDiff, [
                                 moving_frame, end_frame], ry.OT.eq, [1e1])
 
-    def no_collision(self, time_interval, obj1, obj2, margin=.001):
+    def keep_distance(self, time_interval, obj1, obj2, margin=.001):
         """
         inequality on distance between two objects
         """
         self.komo.addObjective(time_interval, ry.FS.negDistance, [obj1, obj2], ry.OT.ineq, [1e1], [-margin])
 
-    def no_collisions(self, time_interval, objs, margin=.001):
+    def keep_distances(self, time_interval, objs, margin=.001):
         """
         inequality on distance between multiple objects
         """
