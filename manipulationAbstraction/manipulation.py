@@ -22,13 +22,10 @@ class ManipulationModelling():
         self.komo: ry.KOMO=None
 
     def setup_inverse_kinematics(self, homing_scale=1e-1, accumulated_collisions=True, quaternion_norms=False):
-        self.setup_n_point_inverse_kinematics(1, homing_scale, accumulated_collisions, quaternion_norms)
-
-    def setup_n_point_inverse_kinematics(self, phases, homing_scale=1e-1, accumulated_collisions=True, quaternion_norms=False):
         """
         setup a 1 phase single step problem
         """
-        self.komo = ry.KOMO(self.C, phases, 1, 0, accumulated_collisions)
+        self.komo = ry.KOMO(self.C, 1, 1, 0, accumulated_collisions)
         self.komo.addControlObjective([], order=0, scale=homing_scale)
         if quaternion_norms:
             self.komo.addQuaternionNorms()
@@ -37,6 +34,20 @@ class ManipulationModelling():
             self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e0])
 
         self.komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq, scale=[1e0])
+
+    def setup_multi_phase_komo(self, phases, slices_per_phase=1, accumulated_collisions=True):
+        """
+        setup a motion problem with multiple phases
+        """
+        self.komo = ry.KOMO()
+        self.komo.setConfig(self.C, accumulated_collisions)
+        self.komo.setTiming(phases, slices_per_phase, 1., 2)
+
+        self.komo.addControlObjective([], 1, 1e-1)
+        self.komo.addControlObjective([], 2, 1e-1)
+
+        if accumulated_collisions:
+            self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e0])
 
     def setup_pick_and_place_waypoints(self, gripper, obj, homing_scale=1e-2, velocity_scale=1e-1, accumulated_collisions=True, joint_limits=True, quaternion_norms=False):
         """
@@ -277,13 +288,109 @@ class ManipulationModelling():
         self.komo.addObjective([times[0]], ry.FS.negDistance, [gripper, obj], ry.OT.eq, [1e1], [-.005])
         self.komo.addObjective([times[1]], ry.FS.positionDiff, [obj, '_pull_end'], ry.OT.eq, [1e1])
 
-    def no_collision(self, time_interval, obj1, obj2, margin=.001):
+    def follow_path_on_plane(self, path: list, plane: str="z", moving_frame: str="l_gripper"):
+        """
+        This function supposes the the robot is already at the starting position!
+        Move through the 2D points defined in the path while staying on the plane specified.
+
+        TODO: Take direction of plane normal into account.
+        """
+        start_pos = self.C.getFrame(moving_frame).getPosition()
+        if plane == "x":
+            plane_pos = np.array([start_pos[0], 0, 0])
+            threed_path = []
+            for p in path:
+                threed_path.append([0, p[0], p[1]]) # TODO: check if this makes sense
+        elif plane == "y":
+            plane_pos = np.array([0, start_pos[1], 0])
+            threed_path = []
+            for p in path:
+                threed_path.append([p[0], 0, p[1]])
+        elif plane == "z":
+            plane_pos = np.array([0, 0, start_pos[2]])
+            threed_path = []
+            for p in path:
+                threed_path.append([p[0], p[1], 0])
+        else:
+            raise Exception('Plane is not defined: ', plane)
+        
+        imp_axis = plane_pos/np.linalg.norm(plane_pos)
+        
+        phases = len(path)-1
+
+        self.komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
+        self.komo.addObjective([1, phases], ry.FS.vectorZ, [moving_frame], ry.OT.eq, [1e1], imp_axis)
+        self.komo.addObjective([1, phases], ry.FS.position, [moving_frame], ry.OT.eq, imp_axis*1e1, plane_pos)
+
+        res = np.array([1, 1, 1]) - imp_axis
+        for i in range(1, len(path)):
+            self.komo.addObjective([i], ry.FS.position, [moving_frame], ry.OT.eq, res, threed_path[i])
+
+        start_pos = self.C.getFrame(moving_frame).getPosition()
+        if plane == "x":
+            plane_pos = np.array([start_pos[0], 0, 0])
+            threed_path = []
+            for p in path:
+                threed_path.append([0, p[0], p[1]]) # TODO: check if this makes sense
+        elif plane == "y":
+            plane_pos = np.array([0, start_pos[1], 0])
+            threed_path = []
+            for p in path:
+                threed_path.append([p[0], 0, p[1]])
+        elif plane == "z":
+            plane_pos = np.array([0, 0, start_pos[2]])
+            threed_path = []
+            for p in path:
+                threed_path.append([p[0], p[1], 0])
+        else:
+            raise Exception('Plane is not defined: ', plane)
+        
+        imp_axis = plane_pos/np.linalg.norm(plane_pos)
+        
+        phases = len(path)-1
+        self.komo = ry.KOMO()
+        self.komo.setConfig(self.C, False)
+        self.komo.setTiming(phases, 5, 1., 2)
+
+        self.komo.addControlObjective([], 1, 1e-1)
+        self.komo.addControlObjective([], 2, 1e-1)
+
+        self.komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
+        self.komo.addObjective([1, phases], ry.FS.vectorZ, [moving_frame], ry.OT.eq, [1e1], imp_axis)
+        self.komo.addObjective([1, phases], ry.FS.position, [moving_frame], ry.OT.eq, imp_axis*1e1, plane_pos)
+
+        res = np.array([1, 1, 1]) - imp_axis
+        for i in range(1, len(path)):
+            self.komo.addObjective([i], ry.FS.position, [moving_frame], ry.OT.eq, res, threed_path[i])
+
+    def path_must_be_straight(self, times, start_frame, end_frame, moving_frame="l_gripper", gotoPoints=False):
+        """
+        The motions between the start and end frames must follow a
+        straight path when looking at the motion frame given as input
+        """
+
+        delta = self.C.getFrame(end_frame).getPosition() - \
+            self.C.getFrame(start_frame).getPosition()
+        
+        delta /= np.linalg.norm(delta)
+        mat = np.eye(3) - np.outer(delta, delta)
+
+        self.komo.addObjective(times, ry.FS.positionDiff, [
+                          moving_frame, start_frame], ry.OT.eq, mat)
+        
+        if gotoPoints:
+            self.komo.addObjective([times[0]], ry.FS.positionDiff, [
+                                moving_frame, start_frame], ry.OT.eq, [1e1])
+            self.komo.addObjective([times[1]], ry.FS.positionDiff, [
+                                moving_frame, end_frame], ry.OT.eq, [1e1])
+
+    def keep_distance(self, time_interval, obj1, obj2, margin=.001):
         """
         inequality on distance between two objects
         """
         self.komo.addObjective(time_interval, ry.FS.negDistance, [obj1, obj2], ry.OT.ineq, [1e1], [-margin])
 
-    def no_collisions(self, time_interval, objs, margin=.001):
+    def keep_distances(self, time_interval, objs, margin=.001):
         """
         inequality on distance between multiple objects
         """

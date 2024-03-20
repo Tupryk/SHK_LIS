@@ -1,5 +1,9 @@
 - Make it a bit more clear when and why you need helpers in __init__
-- Rename no_collision to keep distance, since "accumulatedCollisions" already makes sure that there are no collisions
 - Make it so that komo chooses the optimal grasp position (Is this possible??)
-- Change setup_pick_and_place_waypoints to something like setup_double_inverse_kinematics_waypoints
+- Change setup_pick_and_place_waypoints to something more general
 - Why the helpers in setup_point_to_point_motion
+- Should we add setup_multi_phase_komo?
+- Rename no_collision to keep distance, since "accumulatedCollisions" already makes sure that there are no collisions
+- manipulation.py is getting really big, should we sepparate it into different modules? How big should it get?
+- Should we write documentation for it to get a better grasp on what we want?
+- Taking rotation into account when pushing. Attah joint between box and gripper?
