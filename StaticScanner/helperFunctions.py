@@ -2,6 +2,8 @@
 # --- lastly update on march 21st 2024 ---
 
 import numpy as np
+import robotic as ry
+
 
 def generate_cuboid_surface_points(center, dimensions, num_points_per_face):
     """
@@ -59,3 +61,37 @@ def filter_points_outside_cuboid(point_cloud, cuboid_center, cuboid_dimensions):
                                                 point_cloud[:, 2] > z_max))
     
     return point_cloud[outside_cuboid_mask]
+
+def generate_path_on_partial_spherical_surface(num_points, theta_range, phi_range=(0, 2*np.pi), radius=1.0, center=(0, 0, 0), visualize=False, C=None):
+    """
+    Generates a uniformly distributed path on a partial spherical surface with partial ranges of theta and phi.
+    
+    Args:
+        num_points (int): Number of points to generate.
+        theta_range (tuple): Range of polar angles (theta) in radians as (theta_min, theta_max).
+        phi_range (tuple): Range of azimuthal angles (phi) in radians as (phi_min, phi_max). Default is full range (0 to 2*pi).
+        radius (float): Radius of the spherical surface.
+        center (tuple): Coordinates of the center of the spherical surface.
+    
+    Returns:
+        np.array: Array of points with shape (num_points, 3) representing coordinates on the path along this spherical segment.
+    """
+
+    phi = np.linspace(phi_range[0], phi_range[1], num_points)
+    theta = np.linspace(theta_range[0], theta_range[1], num_points)
+
+    x = center[0] + radius * np.sin(theta) * np.cos(phi)
+    y = center[1] + radius * np.sin(theta) * np.sin(phi)
+    z = center[2] + radius * np.cos(theta)
+
+    points = np.vstack((x, y, z)).T
+
+    if visualize:
+        for i, point in enumerate(points):
+            C.addFrame(f'sphere_point{i}') \
+            .setShape(ry.ST.marker, size=[.1]) \
+            .setPosition(point) \
+            .setColor([0, 1, 0])
+
+
+    return points

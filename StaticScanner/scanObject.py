@@ -2,7 +2,7 @@ import robotic as ry
 import numpy as np
 import matplotlib.pyplot as plt
 import open3d as o3d
-from helperFunctions import filter_points_outside_cuboid
+from helperFunctions import filter_points_outside_cuboid, generate_path_on_partial_spherical_surface
 
 
 ON_REAL = False
@@ -25,10 +25,13 @@ def main():
     while not bot.gripperDone(ry._left):
         bot.sync(C, .1)
     
-    C.view(True)
 
 
     # -- TODO clean KOMO --
+
+    sphere_path = generate_path_on_partial_spherical_surface(6, (np.radians(20), np.radians(60)), .2, (0, .25, .7))
+    C.view(True)
+
     q_now = C.getJointState()
     q_home = bot.get_qHome()
 
@@ -39,7 +42,8 @@ def main():
     komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
 
     komo.addObjective([1.], ry.FS.positionRel, ["predicted_obj", "cameraWrist"], ry.OT.eq, [1.], [.0, .0, .2])
-    komo.addObjective([1.], ry.FS.position, ["l_gripper"], ry.OT.ineq, np.array([[.0, .0, -100.]]), [0, 0, 1])
+    komo.addObjective([1.], ry.FS.position, ["cameraWrist"], ry.OT.eq, [1.], sphere_path[0])
+
     komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_home)
     komo.addObjective([], ry.FS.qItself, [], ry.OT.sos, [.1], q_now)
 
