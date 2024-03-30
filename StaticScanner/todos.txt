@@ -1,0 +1,12 @@
+Define the Information Metric: Choose a metric to quantify the information gained from an observation. Common metrics include entropy reduction, expected information gain, or variance reduction. This metric should capture the uncertainty reduction about the object's characteristics after observing it from a particular viewpoint.
+
+
+
+Objective Function. Gain view point elem SE(3) which weighs in:
+
+- point density of point cloud (the lesser the density per voxel, the more likely we want to capture it from this view ( standard deviation or variance of point coordinates within small neighborhoods)
+- Compare the normal vectors of a point with its K nearest neighbors. A significant difference between the normal vector of a point and its neighbors could indicate a discontinuity.
+- use color information, analyze color variations and discontinuities in conjunction with the 3D point cloud. Color inconsistencies might suggest missing data or surface changes due to occlusions. weigh in the norm of the color gradient in objective function
+
+
+sphere from different angles, constrained on feasible 
