@@ -1,0 +1,45 @@
+{panda_finger_joint1 (panda_hand panda_leftfinger): {ctrl_limits: [0.2, -1, 20.0], joint: transY, limits: [0.0, 0.04], pre: [0.0, 0.0, 0.0584]}
+panda_finger_joint2 (panda_hand panda_rightfinger): {ctrl_limits: [0.2, -1, 20.0], joint: transY, joint_scale: -1, limits: [0.0, 0.04], mimic: (panda_finger_joint1), pre: [0.0, 0.0, 0.0584]}
+panda_hand: {}
+panda_hand_0 (panda_hand): {color: [0.8, 0.2, 0.2, 0.5], contact: -2, mesh: franka_description/meshes/collision/hand.stl}
+panda_hand_1 (panda_hand): {mesh: franka_description/meshes/visual/hand.dae, visual: true}
+panda_hand_joint (panda_link8 panda_hand): {joint: rigid, pre: <E(0 0 -0.785398163397)>}
+panda_joint1 (panda_link0 panda_link1): {ctrl_limits: [2.175, -1, 87.0], joint: hingeZ, limits: [-2.8973, 2.8973], pre: [0.0, 0.0, 0.333]}
+panda_joint2 (panda_link1 panda_link2): {ctrl_limits: [2.175, -1, 87.0], joint: hingeZ, limits: [-1.7628, 1.7628], pre: <E(-1.57079632679 0 0)>}
+panda_joint3 (panda_link2 panda_link3): {ctrl_limits: [2.175, -1, 87.0], joint: hingeZ, limits: [-2.8973, 2.8973], pre: <t(0 -0.316 0) E(1.57079632679 0 0)>}
+panda_joint4 (panda_link3 panda_link4): {ctrl_limits: [2.175, -1, 87.0], joint: hingeZ, limits: [-3.0718, -0.0698], pre: <t(0.0825 0 0) E(1.57079632679 0 0)>}
+panda_joint5 (panda_link4 panda_link5): {ctrl_limits: [2.61, -1, 12.0], joint: hingeZ, limits: [-2.8973, 2.8973], pre: <t(-0.0825 0.384 0) E(-1.57079632679 0 0)>}
+panda_joint6 (panda_link5 panda_link6): {ctrl_limits: [2.61, -1, 12.0], joint: hingeZ, limits: [-0.0175, 3.7525], pre: <E(1.57079632679 0 0)>}
+panda_joint7 (panda_link6 panda_link7): {ctrl_limits: [2.61, -1, 12.0], joint: hingeZ, limits: [-2.8973, 2.8973], pre: <t(0.088 0 0) E(1.57079632679 0 0)>}
+panda_joint8 (panda_link7 panda_link8): {joint: rigid, pre: [0.0, 0.0, 0.107]}
+panda_leftfinger: {}
+panda_leftfinger_0 (panda_leftfinger): {color: [0.8, 0.2, 0.2, 0.5], contact: -2, mesh: franka_description/meshes/collision/finger.stl}
+panda_leftfinger_1 (panda_leftfinger): { mesh: franka_description/meshes/visual/finger.dae, visual: true}
+panda_link0: {}
+panda_link0_0 (panda_link0): {color: [0.8, 0.2, 0.2, 0.5], contact: -2, mesh: franka_description/meshes/collision/link0.stl}
+panda_link0_1 (panda_link0): {mesh: franka_description/meshes/visual/link0.dae, visual: true}
+panda_link1: {}
+panda_link1_0 (panda_link1): {color: [0.8, 0.2, 0.2, 0.5], contact: -2, mesh: franka_description/meshes/collision/link1.stl}
+panda_link1_1 (panda_link1): {mesh: franka_description/meshes/visual/link1.dae, visual: true}
+panda_link2: {}
+panda_link2_0 (panda_link2): {color: [0.8, 0.2, 0.2, 0.5], contact: -2, mesh: franka_description/meshes/collision/link2.stl}
+panda_link2_1 (panda_link2): {mesh: franka_description/meshes/visual/link2.dae, visual: true}
+panda_link3: {}
+panda_link3_0 (panda_link3): {color: [0.8, 0.2, 0.2, 0.5], contact: -2, mesh: franka_description/meshes/collision/link3.stl}
+panda_link3_1 (panda_link3): {mesh: franka_description/meshes/visual/link3.dae,  visual: true}
+panda_link4: {}
+panda_link4_0 (panda_link4): {color: [0.8, 0.2, 0.2, 0.5], contact: -2, mesh: franka_description/meshes/collision/link4.stl}
+panda_link4_1 (panda_link4): {mesh: franka_description/meshes/visual/link4.dae, visual: true}
+panda_link5: {}
+panda_link5_0 (panda_link5): {color: [0.8, 0.2, 0.2, 0.5], contact: -2, mesh: franka_description/meshes/collision/link5.stl}
+panda_link5_1 (panda_link5): {mesh: franka_description/meshes/visual/link5.dae, visual: true}
+panda_link6: {}
+panda_link6_0 (panda_link6): {color: [0.8, 0.2, 0.2, 0.5], contact: -2, mesh: franka_description/meshes/collision/link6.stl}
+panda_link6_1 (panda_link6): {mesh: franka_description/meshes/visual/link6.dae, visual: true}
+panda_link7: {}
+panda_link7_0 (panda_link7): {color: [0.8, 0.2, 0.2, 0.5], contact: -2, mesh: franka_description/meshes/collision/link7.stl}
+panda_link7_1 (panda_link7): {mesh: franka_description/meshes/visual/link7.dae, visual: true}
+panda_link8: {}
+panda_rightfinger: {}
+panda_rightfinger_0 (panda_rightfinger): {Q: <E(0 0 3.14159265359)>, color: [0.8, 0.2, 0.2, 0.5], contact: -2, mesh: franka_description/meshes/collision/finger.stl}
+panda_rightfinger_1 (panda_rightfinger): {Q: <E(0 0 3.14159265359)>, mesh: franka_description/meshes/visual/finger.dae, visual: true}}

@@ -1,7 +1,17 @@
 world: {}
 
+### floor
+
+floor(world): {
+ shape: ssBox, Q: "t(0 0. .1)", size: [5, 5, .02, .02], color: [.3, .3, .3],
+ contact: 1, logical: { },
+ friction: .1
+}
+
 ### omnibase
-Include: <../omnibase/omnibase.g>
+Include: <../omniBase/omniBase.g>
+
+Edit omnibase_base (floor): { Q: "t(0 0 .12)" joint:rigid }
 
 ### one panda
 
@@ -11,10 +21,10 @@ Include: <panda_fixGripper.g>
 
 Prefix: False
 
-Edit l_panda_base (omnibase): { Q: "t(0 -.2 .05) d(-90 0 0 1)" joint:rigid }
+Edit l_panda_base (omnibase_joint): { Q: "t(.0 -.2 .03) d(-90 0 0 1)" joint:rigid }
 
 Edit l_panda_joint2: { q: -.5 }
-Edit l_panda_joint4: { q: -2. }
+Edit l_panda_joint4: { q: -2 }
 Edit l_panda_joint7: { q: -.5 }
 
 ### camera

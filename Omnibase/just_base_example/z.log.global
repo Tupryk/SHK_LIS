@@ -1,0 +1,20 @@
+** compiled at:     Apr 12 2024 11:36:27
+** execution start: 2024-04-12 13:13:50:6767
+graph.cpp:initParameters:1500(3) opening config file 'rai.cfg'
+graph.cpp:initParameters:1505(3)  - success
+graph.cpp:initParameters:1513(3) opening base config file '/home/eckart/git/botop/rai/../local.cfg'
+graph.cpp:initParameters:1519(3)  - failed
+util.cpp:cd_start:1029(3) entering path '/home/eckart/SHK_LIS/Omnibase/komo_example'
+util.cpp:cd_file:1037(3) entering path '/home/eckart/git/botop/rai/../rai-robotModels/omnibase' from '/home/eckart/SHK_LIS/Omnibase/komo_example'
+util.cpp:getIs:1066(3) opening input file 'omnibase.g'
+util.cpp:cd_start:1029(3) entering path '/home/eckart/git/botop/rai-robotModels/omnibase'
+util.cpp:getIs:1066(3) opening input file 'omnibase.ply'
+util.cpp:cd_start:1029(3) entering path '/home/eckart/SHK_LIS/Omnibase/komo_example'
+bot.cpp:~BotOp:128(0) shutting down BotOp...
+simulation.cpp:~BotThreadedSim:56(0) shutting down SimThread
+simulation.cpp:~Simulation:149(0) shutting down Simulation
+** execution stop: 2024-04-12 13:14:03:152744
+** real time: 13.1461sec
+** CPU time: 7.83554
+
+** set+queried params:

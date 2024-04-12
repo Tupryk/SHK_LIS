@@ -1,0 +1,26 @@
+(floor): { shape: capsule, Q: "t(2. 3. 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(1.6 3. 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(1.2 3. 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(0.8 3. 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(0.4 3. 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(0.0 3. 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(-0.4 3. 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(-0.8 3. 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(-1.2 3. 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(-1.6 3. 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(-2.0 3. 1.5)", size: [3., .02], color: [.6, .6, .6] }
+
+(floor): { shape: capsule, Q: "t(2. 2.6 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. 2.2 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. 1.8 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. 1.4 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. 1.0 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. 0.6 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. 0.2 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. -0.2 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. -0.6 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. -1.0 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. -1.4 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. -1.8 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. -2.2 1.5)", size: [3., .02], color: [.6, .6, .6] }
+(floor): { shape: capsule, Q: "t(2. -2.6 1.5)", size: [3., .02], color: [.6, .6, .6] }
