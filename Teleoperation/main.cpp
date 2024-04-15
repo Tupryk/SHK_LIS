@@ -3,13 +3,14 @@
 #include <Core/graph.h>
 #include <KOMO/komo.h>
 #include <BotOp/bot.h>
+#include <Optim/NLP_Solver.h>
 
 
 int main(int argc,char **argv) {
     rai::initCmdLine(argc, argv);
 
     rai::Configuration C;
-    C.addFile(rai::raiPath("../rai-robotModels/scenarios/pandaSingle.g"));
+    C.addFile(rai::raiPath("../rai-robotModels/scenarios/pandasTable.g"));
 
     rai::OptiTrack OT;
 
@@ -41,12 +42,14 @@ int main(int argc,char **argv) {
             arr controller_pos = C.getFrame("controller")->getPosition() - controller_origin;
             controller_pos.elem(0) *= -1;
             controller_pos.elem(1) *= -1;
-            arr target_pos = target_origin + controller_pos;
+            arr target_pos = target_origin + controller_pos*2;
             C.getFrame("gripper_target")->setPosition(target_pos);
 
-            KOMO komo(C, 1., 1, 2, false);
+            KOMO komo(C, 1., 1, 2, true);
+            komo.addControlObjective({}, 0, 1.);
             komo.addControlObjective({}, 1, .1);
             komo.addControlObjective({}, 2, .1);
+            komo.addObjective({}, FS_accumulatedCollisions, {}, OT_eq, {1e0});
             //komo.addObjective({1.}, FS_qItself, {}, OT_eq, {10.}, {}, 1);
             bool should_translate = -C.eval(FS_negDistance, {"l_gripper", "gripper_target"}).elem(0) > .01;
             bool should_rotate = true;
@@ -55,17 +58,20 @@ int main(int argc,char **argv) {
             } else {
                 komo.addObjective({}, FS_position, {"l_gripper"}, OT_eq, {1e1}, C.getFrame("l_gripper")->getPosition());
             }
-            // if (should_rotate) {
-            //     komo.addObjective({1.}, FS_quaternionDiff, {"l_gripper", "gripper_target"}, OT_eq, {1e1});
-            // } else {
-            //     komo.addObjective({}, FS_quaternion, {"l_gripper"}, OT_eq, {1e1}, C.getFrame("l_gripper")->getQuaternion());
-            // }
+            if (should_rotate) {
+                komo.addObjective({1.}, FS_quaternionDiff, {"l_gripper", "gripper_target"}, OT_eq, {1e1});
+            } else {
+                komo.addObjective({}, FS_quaternion, {"l_gripper"}, OT_eq, {1e1}, C.getFrame("l_gripper")->getQuaternion());
+            }
 
             if (should_translate && should_rotate) {
-                komo.optimize();
+                auto ret = NLP_Solver()
+                    .setProblem(komo.nlp())
+                    .solve();
+                cout << *ret <<endl;
                 arr q = komo.getPath_qOrg();
-                bot.move(q, {1.});
-                bot.wait(C);
+                bot.moveTo(q[0], {3.}, true);
+                bot.sync(C, 0);
             }
         }
     }
