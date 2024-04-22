@@ -1,3 +1,6 @@
+import numpy as np
+
+
 def rotate_vec(vec, angle):
     angle = np.deg2rad(angle)
     new_vec = np.copy(vec)
