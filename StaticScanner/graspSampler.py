@@ -1,6 +1,50 @@
 import open3d as o3d
 import numpy as np
+import math 
 
+def rotation_matrix(axis, theta):
+    """
+    Return the rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    axis = np.asarray(axis)
+    axis = axis / math.sqrt(np.dot(axis, axis))
+    a = math.cos(theta / 2.0)
+    b, c, d = -axis * math.sin(theta / 2.0)
+    aa, bb, cc, dd = a * a, b * b, c * c, d * d
+    bc, ad, ac, ab, bd, cd = b * c, a * d, a * c, a * b, b * d, c * d
+    return np.array([[aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
+                     [2 * (bc - ad), aa + cc - bb - dd, 2 * (cd + ab)],
+                     [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
+
+
+# Define a custom gripper shape composed of cuboids
+def create_gripper_geometry():
+    gripper = o3d.geometry.TriangleMesh()
+
+    # Create individual cuboids for the gripper
+    # You can adjust dimensions and positions to form the desired gripper shape
+    cuboid1 = o3d.geometry.TriangleMesh.create_box(width=0.01, height=0.005, depth=0.005)  # Example cuboid
+    cuboid2 = o3d.geometry.TriangleMesh.create_box(width=0.01, height=0.005, depth=0.005)  # Example cuboid
+    cuboid3 = o3d.geometry.TriangleMesh.create_box(width=0.01, height=0.005, depth=0.005)  # Example cuboid
+
+
+    #cuboid3.rotate(np.array())   # Translate cuboid3 to right
+    axis = [0, 1, 0]
+    cuboid1.rotate(rotation_matrix(axis, np.pi/2))   # Translate cuboid3 to right
+    #axis = [0, 1, 0]
+    cuboid3.rotate(rotation_matrix(axis, np.pi/2)) 
+        # Translate and assemble cuboids to form the gripper shape
+    cuboid1.translate([-0.0075, 0, -.005])  # Translate cuboid1 to left
+    cuboid3.translate([0.0075, 0, -.005])  # Translate cuboid1 to left
+    #Combine cuboids into a single mesh (gripper)
+    gripper += cuboid1
+    gripper += cuboid2
+    gripper += cuboid3
+    # Compute vertex normals for visualization
+    gripper.compute_vertex_normals()
+
+    return gripper
 # Step 1: Load the point cloud from a .pcd file
 pcd_path = "registrated.pcd"
 point_cloud = o3d.io.read_point_cloud(pcd_path)
@@ -49,6 +93,7 @@ for point in sampled_points:
 o3d.visualization.draw_geometries([point_cloud] + highlighted_geometries,
                                    window_name="Point Cloud with Highlighted Points",
                                    width=800, height=600)
+
 
 # Step 5: Filter the point cloud to show only points inside the spheres
 inside_sphere_indices = []
@@ -104,17 +149,25 @@ frame_list= []
 for i in range(len(mat_list)):
     eigenvalues, eigenvectors = np.linalg.eig(mat_list[i])
 
-    # Step 2: Sort eigenvalues and corresponding eigenvectors
-    # Get the indices that would sort the eigenvalues in ascending order
+    # Sort eigenvalues and corresponding eigenvectors in ascending order
     sorted_indices = np.argsort(eigenvalues)
     sorted_eigenvalues = eigenvalues[sorted_indices]
     sorted_eigenvectors = eigenvectors[:, sorted_indices]
 
+    # Define custom basis vectors for a right-handed coordinate system
+    # Ensure that u, v, w represent a right-handed coordinate system
+    # Based on the sorted eigenvectors (column-wise in sorted_eigenvectors)
 
-    # Step 1: Define custom basis vectors
-    u = sorted_eigenvectors[0]  # Custom X-axis
-    v = sorted_eigenvectors[1] # Custom Y-axis
-    w = sorted_eigenvectors[2]  # Custom Z-axis
+    # Custom X-axis (u) should be the first eigenvector (corresponding to smallest eigenvalue)
+    u = sorted_eigenvectors[:, 0]
+
+    # Custom Y-axis (v) should be the second eigenvector (corresponding to middle eigenvalue)
+    v = sorted_eigenvectors[:, 1]
+
+    # Ensure that the cross product of u and v gives a vector in the direction of the third eigenvector (w)
+    # Custom Z-axis (w) is the cross product of u and v, normalized to ensure unit length
+    w = np.cross(u, v)
+    w = w / np.linalg.norm(w)  
 
     # Step 2: Define scaling factor for the coordinate frame
     scale_factor = 0.07  # Adjust the scale factor as needed
@@ -154,3 +207,24 @@ for i in range(len(mat_list)):
 o3d.visualization.draw_geometries([point_cloud]+ frame_list,
                                    window_name="Custom Coordinate Frame with Colored Axes",
                                    width=800, height=600)
+
+gripper_geometries = []
+for i,point in enumerate(sampled_points):
+    gripper = create_gripper_geometry()
+
+    # Translate the gripper to the sampled point position
+    gripper.translate(point)
+
+    eigenvalues, eigenvectors = np.linalg.eig(mat_list[i])
+
+    # Sort eigenvalues and corresponding eigenvectors in ascending order
+    sorted_indices = np.argsort(eigenvalues)
+    sorted_eigenvalues = eigenvalues[sorted_indices]
+    sorted_eigenvectors = eigenvectors[:, sorted_indices]
+
+    gripper.rotate(np.array([j for j in sorted_eigenvectors]))
+
+    # Add the gripper to the list of highlighted geometries
+    gripper_geometries.append(gripper)
+# Visualize the updated scene with highlighted grippers
+o3d.visualization.draw_geometries([point_cloud] + gripper_geometries, window_name="Point Cloud with Highlighted Grippers", width=800, height=600)
