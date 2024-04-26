@@ -36,6 +36,8 @@ int main(int argc,char **argv) {
     bot.gripperMove(rai::_right, .079);
     #endif
 
+    const char* to_follow = "l_thumb";
+
     rai::OptiTrack OT;
     OT.pull(C);
 
@@ -67,9 +69,9 @@ int main(int argc,char **argv) {
             C.addFrame("r_gripper_target")->setPosition(r_target_origin).setShape(rai::ST_marker, {.2});
             #endif
 
-            l_controller_origin = C.getFrame("l_controller")->getPosition();
+            l_controller_origin = C.getFrame(to_follow)->getPosition();
             l_target_origin = C.getFrame("l_gripper")->getPosition();
-            l_rotation_offset = C.getFrame("l_controller")->getQuaternion();
+            l_rotation_offset = C.getFrame(to_follow)->getQuaternion();
             C.addFrame("l_gripper_target")->setPosition(l_target_origin).setShape(rai::ST_marker, {.2});
         }
 
@@ -79,7 +81,7 @@ int main(int argc,char **argv) {
             #if BOTH_ARMS
             reload_target(&C, r_target_origin, r_controller_origin, r_rotation_offset, "r_controller", "r_gripper_target");
             #endif
-            reload_target(&C, l_target_origin, l_controller_origin, l_rotation_offset, "l_controller", "l_gripper_target");
+            reload_target(&C, l_target_origin, l_controller_origin, l_rotation_offset, to_follow, "l_gripper_target");
 
             KOMO komo(C, 1., 1, 2, true);
             komo.addControlObjective({}, 0, 1e1);
@@ -124,15 +126,14 @@ int main(int argc,char **argv) {
             float l_gripper_pos = .079 - (C.eval(FS_negDistance, {"l_controller", "l_thumb"}).elem(0)+.014) / -.07 * .079;
             if (l_gripper_pos > .079) l_gripper_pos = .079;
             if (l_gripper_pos < .0) l_gripper_pos = .0;
-            std::cout << "Left gripper pos: " << l_gripper_pos << std::endl;
+            // std::cout << "Left gripper pos: " << l_gripper_pos << std::endl;
 
-            // bot.gripperMove(rai::_left, l_gripper_pos);
             if (l_gripper_closed && l_gripper_pos >= .079*.66) {
                 bot.gripperMove(rai::_left, .079);
                 l_gripper_closed = false;
             }
             else if (!l_gripper_closed && l_gripper_pos <= .079*.33) {
-                bot.gripperMove(rai::_left, .0);
+                bot.gripperClose(rai::_left);
                 l_gripper_closed = true;
             }
 
