@@ -26,6 +26,8 @@ def basic_geometry():
     angle = translate([0, -9.65, 0])(angle)
 
     thumb_base = union()(thumb_base, angle)
+
+    thumb_base = scale([10, 10, 10])(thumb_base)
     shapes.append(thumb_base)
     return union()(*shapes)
 
