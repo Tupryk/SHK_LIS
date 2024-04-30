@@ -1,0 +1,4 @@
+- Create dataset with artec scanner
+- Create a program to test grasp feasibility
+- Create sampler
+- Create CNN model and sample to input translator

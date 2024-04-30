@@ -237,7 +237,7 @@ def visualize_grasps(point_cloud, grippers, point):
         geoms.append({'name': f'gripper_{i}', 'geometry': gripper, 'material': mat_box})
         geoms.append({'name': f'sphere_{i}', 'geometry': sphere, 'material': mat_sphere0})
 
-    vis.draw(geoms)
+    vis.draw(geoms, show_skybox=True)
 
 gripper_geometries = []
 for i, point in enumerate(sampled_points):
@@ -250,7 +250,7 @@ for i, point in enumerate(sampled_points):
     sorted_eigenvalues = eigenvalues[sorted_indices]
     sorted_eigenvectors = eigenvectors[:, sorted_indices]
 
-    gripper.translate(sorted_eigenvectors[0] * .003, relative=True)
+    gripper.translate(point, relative=False)
 
     #gripper.rotate(np.array([j for j in sorted_eigenvectors]))
 
