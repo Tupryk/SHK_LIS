@@ -25,5 +25,5 @@ __pycache__/
 
 #data
 data/
-*.pcd
+#*.pcd
 *.json
