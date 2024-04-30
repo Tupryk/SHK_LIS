@@ -36,7 +36,7 @@ int main(int argc,char **argv) {
     bot.gripperMove(rai::_right, .079);
     #endif
 
-    const char* to_follow = "l_thumb";
+    const char* to_follow = "l_hand";
 
     rai::OptiTrack OT;
     OT.pull(C);
