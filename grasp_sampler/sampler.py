@@ -2,17 +2,13 @@ import numpy as np
 import open3d as o3d
 
 
-def sample_grasps(point_cloud, num_samples=1, verbose=0):
+def sample_grasps(points, normals, point_cloud, num_samples=1, verbose=0):
     """
     This function gives sample grasp positions that
     need to be evaluated later on to see if they are
     feasible.
     """
-    point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=.1, max_nn=30))
     sphere_radius = .005
-
-    points = np.asarray(point_cloud.points)
-    normals = np.asarray(point_cloud.normals)
 
     # Randomly sample points from the point cloud
     sample_indices = np.random.choice(len(points), size=num_samples, replace=False)
@@ -37,15 +33,47 @@ def sample_grasps(point_cloud, num_samples=1, verbose=0):
         # Append the accumulated outer product to mat_list
         mat_list.append(sum_outer_product)
 
+    rotations = []
     for i in range(len(mat_list)):
         eigenvalues, eigenvectors = np.linalg.eig(mat_list[i])
 
         # Sort eigenvalues and corresponding eigenvectors in ascending order
         sorted_indices = np.argsort(eigenvalues)
         sorted_eigenvectors = eigenvectors[:, sorted_indices]
+        rotations.append(sorted_eigenvectors)
 
     # Only take grasp poses that follow these two rules
     #  - No points can be inside of the gripper
     #  - There have to be points in between the gripper's fingers
+
+    if verbose:
+        u = sorted_eigenvectors[:, 0]
+        v = sorted_eigenvectors[:, 1]
+        w = np.cross(u, v)
+        w = w / np.linalg.norm(w)  
+
+
+        origin = [sampled_points[i][0], sampled_points[i][1], sampled_points[i][2]]
+
+        scale_factor = 0.07
+        vertices = np.array([
+            origin,
+            u * scale_factor + origin,
+            v * scale_factor + origin,
+            w * scale_factor + origin
+        ])
+
+        lines = [[0, 1], [0, 2], [0, 3]]
+
+        frame_mesh = o3d.geometry.LineSet()
+        frame_mesh.points = o3d.utility.Vector3dVector(vertices)
+        frame_mesh.lines = o3d.utility.Vector2iVector(lines)
+
+        colors = [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]
+        frame_mesh.colors = o3d.utility.Vector3dVector(colors)
+
+        o3d.visualization.draw_geometries([point_cloud, frame_mesh],
+                                        window_name="Custom Coordinate Frame with Colored Axes",
+                                        width=800, height=600)
     
-    return sampled_points, sorted_eigenvectors
+    return sampled_points, rotations
