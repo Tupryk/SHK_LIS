@@ -12,6 +12,8 @@ z.plotcmd
 
 #compile temporaries 
 build/
+photos/
+.*csv
 *.exe
 *.o
 *.a
