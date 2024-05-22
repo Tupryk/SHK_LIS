@@ -1,6 +1,7 @@
 import robotic as ry
 import numpy as np
 import time
+from itertools import combinations
 
 class ManipulationModelling():
 
@@ -58,7 +59,7 @@ class ManipulationModelling():
         self.komo.addControlObjective([], order=0, scale=homing_scale)
         self.komo.addControlObjective([], order=1, scale=velocity_scale)
         if accumulated_collisions:
-            self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e0])
+            self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e1])
 
         if joint_limits:
             self.komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq, scale=[1e0])
@@ -400,6 +401,14 @@ class ManipulationModelling():
             for obj in objs:
                 self.komo.addObjective(time_interval, ry.FS.negDistance, [comp, obj], ry.OT.ineq, [1e1], [-margin])
 
+    def keep_dist_pairwise(self, time_interval, objs_lst1, margin = 0.001):
+        """
+        automatic inequality on distance between multiple objects
+        """
+        pairwise_objs_lst = list(combinations(objs_lst1, 2))
+        for pair in pairwise_objs_lst:
+            self.komo.addObjective([time_interval], ry.FS.negDistance, [pair[0], pair[1]], ry.OT.ineq, [1e1], [-margin])
+
     def switch_pick():
         """
         a kinematic mode switch, where obj becomes attached to gripper, with freely parameterized but stable (=constant) relative pose
@@ -517,6 +526,19 @@ class ManipulationModelling():
         manip = ManipulationModelling(C, f'sub_rrt_{phase}--{self.info}', self.helpers)
         manip.setup_point_to_point_rrt(q0, q1, explicitCollisionPairs)
         return manip
+    
+    # Debug functions
+    def fetch_name_error_type(self, data):
+        name_error_type_list = []
+        for key, value in data.items():
+            if isinstance(value, dict) and 'name' in value and 'err' in value and 'type' in value:
+                name_error_type_list.append((value['name'], value['err'], value['type']))
+        return name_error_type_list
+
+    
+    def print_name_error_type(self, data):
+        for name, error,  obj_type in data:
+            print("Name:", name, "Type:", obj_type, "Error:", error)
     
     @property
     def feasible(self):
