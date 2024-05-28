@@ -1,0 +1,60 @@
+** compiled at:     Mar  8 2024 09:32:05
+** execution start: 2024-05-28 18:44:01:739289
+graph.cpp:initParameters:1512(3) opening config file 'rai.cfg'
+graph.cpp:initParameters:1519(3)  - failed
+graph.cpp:initParameters:1525(3) opening base config file '/root/local/rai/../local.cfg'
+graph.cpp:initParameters:1531(3)  - failed
+util.cpp:cd_start:1033(3) entering path '/home/denis/SHK_LIS/graspnet_grasping_loop'
+util.cpp:cd_file:1041(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/scenarios' from '/home/denis/SHK_LIS/graspnet_grasping_loop'
+util.cpp:getIs:1070(3) opening input file 'pandaSingle_tableCam.g'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/scenarios'
+util.cpp:getIs:1070(3) opening input file 'panda_fixGripper.g'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/scenarios'
+util.cpp:cd_file:1041(3) entering path '../panda' from '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/scenarios'
+util.cpp:getIs:1070(3) opening input file 'panda.g'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1070(3) opening input file 'panda_clean.g'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/scenarios'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/scenarios'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1041(3) entering path 'franka_description/meshes/visual' from '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1070(3) opening input file 'link0.ply'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1041(3) entering path 'franka_description/meshes/visual' from '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1070(3) opening input file 'link1.ply'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1041(3) entering path 'franka_description/meshes/visual' from '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1070(3) opening input file 'link2.ply'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1041(3) entering path 'franka_description/meshes/visual' from '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1070(3) opening input file 'link3.ply'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1041(3) entering path 'franka_description/meshes/visual' from '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1070(3) opening input file 'link4.ply'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1041(3) entering path 'franka_description/meshes/visual' from '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1070(3) opening input file 'link5.ply'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1041(3) entering path 'franka_description/meshes/visual' from '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1070(3) opening input file 'link6.ply'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1041(3) entering path 'franka_description/meshes/visual' from '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1070(3) opening input file 'link7.ply'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1041(3) entering path 'franka_description/meshes/visual' from '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1070(3) opening input file 'hand.ply'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1041(3) entering path 'franka_description/meshes/visual' from '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1070(3) opening input file 'finger.ply'
+util.cpp:cd_start:1033(3) entering path '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:cd_file:1041(3) entering path 'franka_description/meshes/visual' from '/home/denis/miniconda3/envs/contact_graspnet_env/lib/python3.7/site-packages/robotic/rai-robotModels/panda'
+util.cpp:getIs:1070(3) opening input file 'finger.ply'
+util.cpp:cd_start:1033(3) entering path '/home/denis/SHK_LIS/graspnet_grasping_loop'
+kin_physx.cpp:addJoint:298(0) ADDING JOINT l_panda_joint7-obj0 of type rigid with rel [0, 0, 0]
+kin_physx.cpp:removeJoint:891(0) REMOVING JOINT 0x56474de276c0-0x56474de25160 of type rigid
+kin.cpp:addFrame:193(-1) frame already exists! returning existing without modifications!
+kin.cpp:addFrame:193(-1) frame already exists! returning existing without modifications!
+kin.cpp:attach:1309(-1) attaching 'l_panda_joint2' to 'l_panda_joint7' creates a kinematic loop
+kin_physx.cpp:addJoint:298(0) ADDING JOINT l_panda_joint7-l_panda_joint2 of type rigid with rel [0, 0, 0]
+kin.cpp:setJointState:656(-2) CHECK_EQ failed: '_q.N'=7 'N'=6 -- wrong joint state dimensionalities
