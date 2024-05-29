@@ -10,7 +10,7 @@ from matplotlib.image import imsave
 C = ry.Config()
 C.addFile(ry.raiPath('scenarios/pandaSingle_tableCam.g'))
 
-bot = ry.BotOp(C, useRealRobot=False)
+bot = ry.BotOp(C, useRealRobot=True)
 
 
 p1 = np.array([.0, .1, .89])

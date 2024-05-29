@@ -1,6 +1,10 @@
 import cv2
+import rowan
 import numpy as np
+import pandas as pd
+import robotic as ry
 import matplotlib.pyplot as plt
+
 
 # Object points (3D points in the world coordinate system)
 object_points = np.array([
@@ -12,23 +16,15 @@ object_points = np.array([
     [0.0, 0.3, 0.77],
     [0.12, 0.37, 0.71],
     [-0.1, 0.33, 0.72],
-    [0, 0.02, 0.71],
     [-0.1, 0.2, 0.76]
 ], dtype=np.float32)
 
+
 # Corresponding 2D points in the image plane
-image_points = np.array([
-    [160, 77],
-    [375, 80],
-    [258, 157],
-    [357, 151],
-    [117, 92],
-    [284, 156],
-    [336, 210],
-    [295, 174],
-    [114, 186],
-    [230, 153]
-], dtype=np.float32)
+df = pd.read_csv('red_dot_coordinates.csv')
+
+# Extract the X and Y columns
+image_points = df[['X', 'Y']].values.astype(np.float32)
 
 # Camera intrinsic parameters
 camera_matrix = np.array([
@@ -38,7 +34,7 @@ camera_matrix = np.array([
 ], dtype=np.float32)
 
 # Assuming no lens distortion for simplicity; otherwise, provide distortion coefficients
-dist_coeffs = np.zeros(4)  # or use actual distortion coefficients
+dist_coeffs = np.zeros((4, 1), dtype=np.float32)
 
 # Solve for the rotation and translation vectors
 success, rotation_vector, translation_vector = cv2.solvePnP(object_points, image_points, camera_matrix, dist_coeffs)
@@ -70,3 +66,10 @@ if success:
 
 else:
     print("SolvePnP failed to find a solution.")
+
+
+C = ry.Config()
+C.addFile(ry.raiPath('scenarios/pandaSingle_tableCam.g'))
+C.addFrame("camera_prediction").setShape(ry.ST.marker, [.03]).setPosition(translation_vector).setQuaternion(rowan.from_matrix(rotation_matrix))
+print(C.getFrame("cameraFrame").getPosition())
+C.view(True)
