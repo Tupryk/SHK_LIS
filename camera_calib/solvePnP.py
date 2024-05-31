@@ -6,20 +6,10 @@ import robotic as ry
 import matplotlib.pyplot as plt
 
 
-# Object points (3D points in the world coordinate system)
-object_points = np.array([
-    [0.0, 0.1, 0.89],
-    [0.15, 0.4, 0.9],
-    [-0.1, 0.25, 0.75],
-    [0.1, 0.4, 0.8],
-    [-0.1, 0.0, 0.86],
-    [0.0, 0.3, 0.77],
-    [0.12, 0.37, 0.71],
-    [-0.1, 0.33, 0.72],
-    [-0.1, 0.2, 0.76]
-], dtype=np.float32)
 
 
+df = pd.read_csv('3dpoints.csv')
+object_points = df[['X', 'Y', 'Z']].to_numpy(dtype=np.float32)
 # Corresponding 2D points in the image plane
 df = pd.read_csv('red_dot_coordinates.csv')
 

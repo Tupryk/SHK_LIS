@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import os
 import csv
+import pandas as pd 
 
 # Directory containing the images
 image_dir = 'photos'
@@ -15,6 +16,7 @@ upper_red1 = np.array([10, 255, 255])
 lower_red2 = np.array([170, 70, 50])
 upper_red2 = np.array([180, 255, 255])
 
+number_points=len(pd.read_csv("3dpoints.csv"))
 # Function to find the coordinates of the red dot
 def find_red_dot_coordinates(image):
     # Convert the image to the HSV color space
@@ -46,7 +48,7 @@ with open(output_file, mode='w', newline='') as file:
     writer.writerow(['Image', 'X', 'Y'])  # Write the header
 
     # Process each image
-    for i in range(10):
+    for i in range(number_points):
         image_path = os.path.join(image_dir, f'{image_prefix}{i}{image_extension}')
         image = cv2.imread(image_path)
         
@@ -66,7 +68,7 @@ print(f'Coordinates saved to {output_file}')
 
 # Optional: Display the image with the red dot marked (for verification)
 # Uncomment below code to visualize
-for i in range(10):
+for i in range(number_points):
     image_path = os.path.join(image_dir, f'{image_prefix}{i}{image_extension}')
     image = cv2.imread(image_path)
     if image is not None:

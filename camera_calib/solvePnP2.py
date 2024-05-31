@@ -6,17 +6,8 @@ import robotic as ry
 from scipy.spatial.transform import Rotation
 
 
-object_points = np.array([
-    [0.0, 0.1, 0.89],
-    [0.15, 0.4, 0.9],
-    [-0.1, 0.25, 0.75],
-    [0.1, 0.4, 0.8],
-    [-0.1, 0.0, 0.86],
-    [0.0, 0.3, 0.77],
-    [0.12, 0.37, 0.71],
-    [-0.1, 0.33, 0.72],
-    [-0.1, 0.2, 0.76]
-], dtype=np.float32)
+df = pd.read_csv('3dpoints.csv')
+object_points = df[['X', 'Y', 'Z']].to_numpy(dtype=np.float32)
 
 df = pd.read_csv('red_dot_coordinates.csv')
 
@@ -48,5 +39,19 @@ print(rot)
 
 C = ry.Config()
 C.addFile(ry.raiPath('scenarios/pandaSingle_tableCam.g'))
-C.addFrame("camera_prediction").setShape(ry.ST.marker, [.03]).setPosition(camera_position).setQuaternion(rot)
+C.addFrame("camera_prediction").setShape(ry.ST.marker, [.09]).setPosition(camera_position).setQuaternion(rot)
+C.view(True)
+
+bot = ry.BotOp(C, True)
+rgb, depth, points = bot.getImageDepthPcl('cameraFrame', True)
+R, t = rowan.to_matrix(C.getFrame("camera_prediction").getQuaternion()), C.getFrame("camera_prediction").getPosition()
+
+points = points.reshape(-1, 3)
+points = points @ R.T
+points = points + np.tile(t.T, (points.shape[0], 1))
+
+pclFrame = C.addFrame('pcl')
+pclFrame.setPointCloud(np.array(points))
+pclFrame.setColor([0.,1.,0.]) #only to see it when overlaying with truth
+C.view_recopyMeshes()
 C.view(True)
