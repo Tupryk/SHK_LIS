@@ -14,7 +14,22 @@ object_points = df[['X', 'Y', 'Z']].to_numpy(dtype=np.float32)
 df = pd.read_csv('red_dot_coordinates.csv')
 
 # Extract the X and Y columns
-image_points = df[['X', 'Y']].values.astype(np.float32)
+try: 
+    image_points = df[['X', 'Y']].values.astype(np.float32)
+except ValueError:
+    #TODO delete corresponding line in csv then
+    pass
+
+new_object_points = []
+tmp = 0
+for i, image in enumerate(df["Image"]):
+    if image == f"image{i+tmp}.png":
+        new_object_points.append(object_points[i+tmp])
+    else:
+        tmp += 1
+        new_object_points.append(object_points[i+tmp])
+object_points = np.array(new_object_points)
+
 
 # Camera intrinsic parameters
 camera_matrix = np.array([

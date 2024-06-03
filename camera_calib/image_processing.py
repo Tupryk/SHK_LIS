@@ -10,10 +10,11 @@ image_prefix = 'image'
 image_extension = '.png'
 output_file = 'red_dot_coordinates.csv'
 
-# Define the range of the red color in HSV
+
+# Define the narrowed range of the red color in HSV
 lower_red1 = np.array([0, 70, 50])
-upper_red1 = np.array([10, 255, 255])
-lower_red2 = np.array([170, 70, 50])
+upper_red1 = np.array([5, 255, 255])
+lower_red2 = np.array([175, 70, 50])
 upper_red2 = np.array([180, 255, 255])
 
 number_points=len(pd.read_csv("3dpoints.csv"))

@@ -12,7 +12,7 @@ C.addFile(ry.raiPath('scenarios/pandaSingle_tableCam.g'))
 
 bot = ry.BotOp(C, useRealRobot=True)
 
-points3d = sample3dpoints(25, -.1, .25, .12, .51, .7, .95)
+points3d = sample3dpoints(30, -.1, .25, .12, .7, .7, 1.4)
 
 for i, p in enumerate(points3d):
     C.addFrame(f'way{i}'). setShape(ry.ST.marker, [.1]) .setPosition(p)
@@ -27,12 +27,12 @@ with open("3dpoints.csv", mode='w', newline='') as file:
 
 qHome = C.getJointState()
 
+C.addFrame("marker", "l_gripper").setShape(ry.ST.sphere, [.01]).setColor([1., .0, .0]).setRelativePosition([.0, .01, .0])
 komo = ry.KOMO(C, len(points3d), 1, 0, False)
-
 
 komo.addObjective([0, len(points3d)], ry.FS.scalarProductXX, ['l_gripper', "world"], ry.OT.eq, [1e2])
 for i, _ in enumerate(points3d):
-    komo.addObjective([i+1], ry.FS.positionDiff, ['l_gripper', f"way{i}"], ry.OT.eq, [1e2])
+    komo.addObjective([i+1], ry.FS.positionDiff, ['marker', f"way{i}"], ry.OT.eq, [1e2])
     
 
 ret = ry.NLP_Solver(komo.nlp(), verbose=0 ) .solve()
