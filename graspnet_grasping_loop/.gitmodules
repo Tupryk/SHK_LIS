@@ -1,0 +1,4 @@
+[submodule "contact_graspnet"]
+	path = contact_graspnet
+	url = ../../contact_graspnet.git
+    
