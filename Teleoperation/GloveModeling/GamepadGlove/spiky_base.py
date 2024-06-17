@@ -2,7 +2,7 @@
 import sys
 import numpy as np
 from solid import scad_render_to_file, difference
-from solid.objects import cube, translate, union, rotate, cylinder, scale
+from solid.objects import translate, union, rotate, cylinder, scale
 
 
 SEGMENTS = 48
@@ -11,15 +11,21 @@ ball_count = 6
 def basic_geometry():
 
     shapes = []
-    base = cylinder(r=1.1, h=.5, center=True)
+    base = cylinder(r=1.5, h=.7, center=True)
     
     step = np.pi*2/ball_count
     for i in range(ball_count):
-        length = 5. + np.random.random() * 10.
+        length = 2.
         inclination = 15. + np.random.random() * 10.
-        bar = cylinder(r=.25, h=length, center=True)
-        bar = translate([np.sin(i*step)*.8, np.cos(i*step)*.8, length*.5+.5])(bar)
-        bar = rotate([-np.cos(i*step)*inclination, np.sin(i*step)*inclination, 0.])(bar)
+        pos = [np.sin(i*step)*.8, np.cos(i*step)*.8, length*.5+.25]
+        rot = [-np.cos(i*step)*inclination, np.sin(i*step)*inclination, 0.]
+
+        bar = cylinder(r=.6, h=length, center=True)
+        bar_hole = cylinder(r=.3, h=length*2., center=True)
+        bar = difference()(bar, bar_hole)
+        bar = translate(pos)(bar)
+        bar = rotate(rot)(bar)
+
         base = union()(base, bar)
 
     base = scale([10, 10, 10])(base)
