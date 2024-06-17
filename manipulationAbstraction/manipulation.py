@@ -543,4 +543,3 @@ class ManipulationModelling():
     @property
     def feasible(self):
         return self.ret.feasible
-    
