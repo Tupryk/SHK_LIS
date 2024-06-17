@@ -20,8 +20,8 @@ def basic_geometry():
         pos = [np.sin(i*step)*.8, np.cos(i*step)*.8, length*.5+.25]
         rot = [-np.cos(i*step)*inclination, np.sin(i*step)*inclination, 0.]
 
-        bar = cylinder(r=.6, h=length, center=True)
-        bar_hole = cylinder(r=.3, h=length*2., center=True)
+        bar = cylinder(r=.4, h=length, center=True)
+        bar_hole = cylinder(r=.15, h=length*2., center=True)
         bar = difference()(bar, bar_hole)
         bar = translate(pos)(bar)
         bar = rotate(rot)(bar)
