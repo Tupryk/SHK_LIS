@@ -50,12 +50,12 @@ class ManipulationModelling():
         if accumulated_collisions:
             self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e0])
 
-    def setup_pick_and_place_waypoints(self, gripper, obj, homing_scale=1e-2, velocity_scale=1e-1, accumulated_collisions=True, joint_limits=True, quaternion_norms=False):
+    def setup_pick_and_place_waypoints(self, gripper, obj, phases = 2., homing_scale=1e-2, velocity_scale=1e-1, accumulated_collisions=True, joint_limits=True, quaternion_norms=False):
         """
         setup a 2 phase pick-and-place problem, with a pick switch at time 1, and a place switch at time 2
         the place mode switch at the final time two might seem obselete, but this switch also implies the geometric constraints of placeOn
         """
-        self.komo = ry.KOMO(self.C, 2., 1, 1, accumulated_collisions)
+        self.komo = ry.KOMO(self.C, phases, 1, 1, accumulated_collisions)
         self.komo.addControlObjective([], order=0, scale=homing_scale)
         self.komo.addControlObjective([], order=1, scale=velocity_scale)
         if accumulated_collisions:
