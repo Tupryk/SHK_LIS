@@ -32,7 +32,7 @@ class ManipulationModelling():
             self.komo.addQuaternionNorms()
 
         if accumulated_collisions:
-            self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e0])
+            self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e1])
 
         self.komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq, scale=[1e0])
 
@@ -399,7 +399,7 @@ class ManipulationModelling():
             comp = objs[0]
             del objs[0]
             for obj in objs:
-                self.komo.addObjective(time_interval, ry.FS.negDistance, [comp, obj], ry.OT.ineq, [1e1], [-margin])
+                self.komo.addObjective(time_interval, ry.FS.negDistance, [comp, obj], ry.OT.ineq, [1e2], [-margin])
 
     def keep_dist_pairwise(self, time_interval, objs_lst1, margin = 0.001):
         """
