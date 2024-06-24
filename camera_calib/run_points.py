@@ -12,7 +12,15 @@ C.addFile(ry.raiPath('scenarios/pandaSingle_tableCam.g'))
 
 bot = ry.BotOp(C, useRealRobot=True)
 
-points3d = sample3dpoints(30, -.1, .25, .12, .7, .7, 1.4)
+vertices = np.array([[-.3,0,.7],
+                     [-.3,0,1.1],
+                     [.3,0,.7],
+                     [.3,0,1.3],
+                     [-.3,.5,.7],
+                     [-.3,.5,1.1],
+                     [.3,.7,.7],
+                     [.3,.7,1.3]])
+points3d = sample_points_from_trapezoid(vertices, 30)
 
 for i, p in enumerate(points3d):
     C.addFrame(f'way{i}'). setShape(ry.ST.marker, [.1]) .setPosition(p)
