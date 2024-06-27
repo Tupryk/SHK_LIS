@@ -7,6 +7,8 @@
 #include <Optim/NLP_Solver.h>
 #include <Gamepad/gamepad.h>
 
+#define USE_BOTH_ARMS 1
+
 
 void reload_target(rai::Configuration* C, arr target_origin, arr controller_origin, rai::Quaternion rotation_offset, const char* controller, const char* gripper_target) {
     arr controller_pos = C->getFrame(controller)->getPosition() - controller_origin;
@@ -18,11 +20,35 @@ void reload_target(rai::Configuration* C, arr target_origin, arr controller_orig
     C->getFrame(gripper_target)->setQuaternion(controller_quat.getArr4d());
 }
 
+void update_gripper(bool* helper_bool, bool button_pressed, rai::ArgWord which_gripper, BotOp* bot) {
+    if (button_pressed) {
+        if (helper_bool && button_pressed && bot->gripperDone(which_gripper)) {
+            bot->gripperMove(which_gripper, .075);
+            *helper_bool = false;
+            std::cout << "OPEN" << std::endl;
+        }
+        else if (!helper_bool && button_pressed && bot->gripperDone(which_gripper)) {
+            bot->gripperClose(which_gripper);
+            *helper_bool = true;
+            std::cout << "CLOSE" << std::endl;
+        }
+        std::cout << "gripper" << bot->gripperDone(which_gripper) << std::endl;
+    }
+}
+
+void update_robot_pose() {
+    
+}
+
 int main(int argc,char **argv)
 {
     // Config
     rai::Configuration C;
-    C.addFile(rai::raiPath("../rai-robotModels/scenarios/pandaSingle.g"));
+    #if USE_BOTH_ARMS
+        C.addFile(rai::raiPath("../rai-robotModels/scenarios/pandasTable.g"));
+    #else
+        C.addFile(rai::raiPath("../rai-robotModels/scenarios/pandaSingle.g"));
+    #endif
     C.view(false);
 
     // Bot
@@ -30,23 +56,47 @@ int main(int argc,char **argv)
     bot.home(C);
     bot.gripperMove(rai::_left, .079);
     bool l_gripper_closed = false;
+    #if USE_BOTH_ARMS
+        bot.gripperMove(rai::_right, .079);
+        bool r_gripper_closed = false;
+    #endif
     arr qHome = C.getJointState();
     arr last_komo = bot.get_q();
     arr q_dot_ref = bot.get_qDot();
 
     // Mocap
+    std::cout << "Initializing mocap...";
     rai::OptiTrack OT;
     OT.pull(C);
-    const char* to_follow = "l_gamepad";
+    std::cout << "Done.\n";
+    const char* l_to_follow = "l_gamepad";
     arr l_controller_origin;
     arr l_target_origin;
     rai::Quaternion l_rotation_offset;
     C.addFrame("l_gripper_target")->setShape(rai::ST_marker, {.2});
+    #if USE_BOTH_ARMS
+        const char* r_to_follow = "r_gamepad";
+        arr r_controller_origin;
+        arr r_target_origin;
+        rai::Quaternion r_rotation_offset;
+        C.addFrame("r_gripper_target")->setShape(rai::ST_marker, {.2});
+    #endif
     
     // Gamepad
     GamepadInterface G;
+    if (G.count == 0) {
+        std::cout << "No controller found! Shutting down..." << std::endl;
+        return -1;
+    }
     std::cout << "Waiting for Gamepad thread...";
-    G.gamepadState.waitForNextRevision();
+    G.gamepadState[0].waitForNextRevision();
+    #if USE_BOTH_ARMS
+        if (G.count < 2) {
+            std::cout << "A controller is missing for usage of both arms!" << std::endl;
+            return -1;
+        }
+        G.gamepadState[1].waitForNextRevision();
+    #endif
     std::cout << "Done.\n";
 
     // Timing
@@ -61,13 +111,15 @@ int main(int argc,char **argv)
         
         auto loop_start = std::chrono::steady_clock::now();
 
-        if (G.gamepadState.get()().elem(0)==BTN_A ||
-            G.gamepadState.get()().elem(0)==BTN_B ||
-            G.gamepadState.get()().elem(0)==BTN_X) {
+        if (G.getButtonPressed(0)==BTN_A ||
+            G.getButtonPressed(0)==BTN_B ||
+            G.getButtonPressed(0)==BTN_X) {
             KOMO komo(C, 1., 1, 2, true);
             
             komo.setConfig(C, true);
             komo.setTiming(1, 1, 1, 0);
+            komo.addObjective({}, FS_accumulatedCollisions, {}, OT_eq, {1e1});
+            komo.addObjective({}, FS_jointLimits, {}, OT_ineq, {1e1});
 
             komo.addObjective({}, FS_qItself, {}, OT_sos, {1e-1}, qHome);            
             komo.addObjective({}, FS_qItself, {}, OT_sos, {1e0}, last_komo);            
@@ -93,7 +145,7 @@ int main(int argc,char **argv)
             last_komo = q[0];
             bot.sync(C, 0);
         }
-        else if (G.gamepadState.get()().elem(0)==BTN_Y)
+        else if (G.getButtonPressed(0)==BTN_Y || G.getButtonPressed(1)==BTN_Y)
         {
             bot.home(C);
             last_komo = bot.get_q();
@@ -102,45 +154,67 @@ int main(int argc,char **argv)
         {
             bot.stop(C);
             // Reset translation and rotation offsets for the target frame
-            l_controller_origin = C.getFrame(to_follow)->getPosition();
+            l_controller_origin = C.getFrame(l_to_follow)->getPosition();
             l_target_origin = C.getFrame("l_gripper")->getPosition(); 
-            rai::Quaternion controller_quat(C.getFrame(to_follow)->getQuaternion());
-            l_rotation_offset = controller_quat.invert();
+            rai::Quaternion l_controller_quat(C.getFrame(l_to_follow)->getQuaternion());
+            l_rotation_offset = l_controller_quat.invert();
             rai::Quaternion l_initial_gripper_rot(C.getFrame("l_gripper")->getQuaternion());
             l_rotation_offset.append(l_initial_gripper_rot);
+            #if USE_BOTH_ARMS
+                r_controller_origin = C.getFrame(r_to_follow)->getPosition();
+                r_target_origin = C.getFrame("r_gripper")->getPosition(); 
+                rai::Quaternion r_controller_quat(C.getFrame(r_to_follow)->getQuaternion());
+                r_rotation_offset = r_controller_quat.invert();
+                rai::Quaternion r_initial_gripper_rot(C.getFrame("r_gripper")->getQuaternion());
+                r_rotation_offset.append(r_initial_gripper_rot);
+            #endif
         }
 
-        if (G.gamepadState.get()().elem(0)==BTN_B)
+        if (G.getButtonPressed(0)==BTN_B)
         {
-            reload_target(&C, l_target_origin, C.getFrame(to_follow)->getPosition(), l_rotation_offset, to_follow, "l_gripper_target");
+            reload_target(&C, l_target_origin, C.getFrame(l_to_follow)->getPosition(), l_rotation_offset, r_to_follow, "l_gripper_target");
         }
-        else if (G.gamepadState.get()().elem(0)==BTN_X)
+        else if (G.getButtonPressed(0)==BTN_X)
         {
-            rai::Quaternion controller_quat(C.getFrame(to_follow)->getQuaternion());
-            l_rotation_offset = controller_quat.invert();
+            rai::Quaternion l_controller_quat(C.getFrame(l_to_follow)->getQuaternion());
+            l_rotation_offset = l_controller_quat.invert();
             rai::Quaternion l_initial_gripper_rot(C.getFrame("l_gripper")->getQuaternion());
             l_rotation_offset.append(l_initial_gripper_rot);
-            reload_target(&C, l_target_origin, l_controller_origin, l_rotation_offset, to_follow, "l_gripper_target");
+            reload_target(&C, l_target_origin, l_controller_origin, l_rotation_offset, l_to_follow, "l_gripper_target");
         }
         else
         {
-            reload_target(&C, l_target_origin, l_controller_origin, l_rotation_offset, to_follow, "l_gripper_target");
+            reload_target(&C, l_target_origin, l_controller_origin, l_rotation_offset, l_to_follow, "l_gripper_target");
         }
 
-        if (l_gripper_closed && G.gamepadState.get()().elem(0)==BTN_R && bot.gripperDone(rai::_left)) {
-            bot.gripperMove(rai::_left, .079);
-            l_gripper_closed = false;
-        }
-        else if (!l_gripper_closed && G.gamepadState.get()().elem(0)==BTN_R && bot.gripperDone(rai::_left)) {
-            bot.gripperClose(rai::_left);
-            l_gripper_closed = true;
-        }
+        #if USE_BOTH_ARMS
+            if (G.getButtonPressed(1)==BTN_B)
+            {
+                reload_target(&C, r_target_origin, C.getFrame(r_to_follow)->getPosition(), r_rotation_offset, r_to_follow, "r_gripper_target");
+            }
+            else if (G.getButtonPressed(1)==BTN_X)
+            {
+                rai::Quaternion r_controller_quat(C.getFrame(r_to_follow)->getQuaternion());
+                r_rotation_offset = r_controller_quat.invert();
+                rai::Quaternion r_initial_gripper_rot(C.getFrame("r_gripper")->getQuaternion());
+                r_rotation_offset.append(r_initial_gripper_rot);
+                reload_target(&C, r_target_origin, r_controller_origin, r_rotation_offset, r_to_follow, "r_gripper_target");
+            }
+            else
+            {
+                reload_target(&C, r_target_origin, r_controller_origin, r_rotation_offset, r_to_follow, "r_gripper_target");
+            }
+        #endif
+
+        update_gripper(&l_gripper_closed, G.getButtonPressed(0)==BTN_R, rai::_left, &bot);
+        #if USE_BOTH_ARMS
+            update_gripper(&r_gripper_closed, G.getButtonPressed(1)==BTN_R, rai::_right, &bot);
+        #endif
 
         auto loop_end = std::chrono::steady_clock::now();
         std::chrono::duration<double, std::milli> elapsed_time = loop_end - loop_start;
         auto sleep_duration = interval - std::chrono::duration_cast<std::chrono::milliseconds>(elapsed_time);
         if (sleep_duration.count() > 0) {
-            std::cout<<sleep_duration.count()<<std::endl;
             std::this_thread::sleep_for(sleep_duration);
         }
     }
