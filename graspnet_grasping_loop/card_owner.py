@@ -5,9 +5,9 @@ import numpy as np
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), './contact_graspnet/contact_graspnet'))
+sys.path.append(os.path.join(os.path.dirname(__file__), './contact_graspnet'))
 
-from custom_inference import GraspnetModel
+from contact_graspnet.custom_inference import GraspnetModel
 
 
 def process_client_inputs(model, verbose: int=0):
