@@ -7,8 +7,8 @@
 #include <Optim/NLP_Solver.h>
 #include <Gamepad/gamepad.h>
 
-#define USE_BOTH_ARMS 1
-#define TRANSLATION_SCALE 2
+#define USE_BOTH_ARMS 0 // USING BOTH ARMS IS STILL NOT WORKING PERFECTLY, USE AT OWN RISK!!!
+#define TRANSLATION_SCALE 1
 
 
 struct TrackingData {
@@ -118,12 +118,14 @@ int main(int argc,char **argv)
     TrackingData l_arm;
     l_arm.controller_frame = "l_gamepad";
     l_arm.target_frame = "l_gripper_target";
-    C.addFrame("l_gripper_target")->setShape(rai::ST_marker, {.2});
+    C.addFrame("l_gripper_target")->setShape(rai::ST_marker, {.1})
+        .setPosition(C.getFrame("l_gripper")->getPosition());
     #if USE_BOTH_ARMS
         TrackingData r_arm;
         r_arm.controller_frame = "r_gamepad";
         r_arm.target_frame = "r_gripper_target";
-        C.addFrame("r_gripper_target")->setShape(rai::ST_marker, {.2});
+        C.addFrame("r_gripper_target")->setShape(rai::ST_marker, {.1})
+            .setPosition(C.getFrame("r_gripper")->getPosition());
     #endif
     
     // Gamepad
@@ -155,7 +157,20 @@ int main(int argc,char **argv)
         
         auto loop_start = std::chrono::steady_clock::now();
 
-        if (is_move_button_pressed(&G, 0)
+        if (-C.eval(FS_negDistance, {"l_gripper", "l_gripper_target"}).elem(0) > .2
+                #if USE_BOTH_ARMS
+                    || -C.eval(FS_negDistance, {"r_gripper", "r_gripper_target"}).elem(0) > .2
+                #endif
+        ) {
+            // Safety measure: Don't move if the target possition is too far away
+            bot.stop(C);
+            reset_data(&l_arm, "l_gripper", &C);
+            #if USE_BOTH_ARMS
+                reset_data(&r_arm, "r_gripper", &C);
+            #endif
+            std::cout << "Safety measure activated! Robot did not follow target.\n";
+        }
+        else if (is_move_button_pressed(&G, 0)
                 #if USE_BOTH_ARMS
                     || is_move_button_pressed(&G, 1)
                 #endif
@@ -178,9 +193,7 @@ int main(int argc,char **argv)
                 komo.addObjective({1.}, FS_quaternionDiff, {"r_gripper", "r_gripper_target"}, OT_eq, {1e1});
             #endif
 
-            auto ret = NLP_Solver()
-                .setProblem(komo.nlp())
-                .solve();
+            auto ret = NLP_Solver(komo.nlp(), 0).solve();
 
             arr q = komo.getPath_qOrg();
             arr q_dot_ref = (q[0]-last_komo)/tau;
