@@ -53,7 +53,9 @@ def main():
     print(qReal[:3], "\n\n")
     print(gamepadData[:3])
 
+    onlyQInverse = [i[1:] for i in reversed(qReal)]
     np.save("logs/qReal", np.asarray(qReal))
+    np.save("logs/only_qReverse", np.asarray(onlyQInverse))
     #np.save("logs/gamePadAfterSelect", np.asarray(gamepadData))
 
 
