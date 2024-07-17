@@ -41,6 +41,8 @@ def solveZinQSpace(q, num_cPoints, degree=2, verbose=2):
             C.addFrame(f'way{i}'). setShape(ry.ST.marker, [.1]) .setPosition(C.getFrame("l_gripper").getPosition())
             C.view(False)
             time.sleep(.5)
+        C.view(True)
+
 
     return z
 
@@ -63,10 +65,10 @@ def solveZinTaskSpace(C, q, num_cPoints, degree=2, verbose=2):
         print(z)
     if verbose & 2:
         for i, q in enumerate(z):
-            C.setJointState(q)
-            C.addFrame(f'way{i}'). setShape(ry.ST.marker, [.1]) .setPosition(C.getFrame("l_gripper").getPosition())
+            C.addFrame(f'task_way{i}'). setShape(ry.ST.marker, [.1]) .setPosition(q)
             C.view(False)
             time.sleep(.5)
+        C.view(True)
 
     return z
 
@@ -74,5 +76,7 @@ q = np.load("logs/only_qReverse.npy")
 
 C = ry.Config()
 C.addFile(ry.raiPath('../rai-robotModels/scenarios/pandaSingle.g'))
-z = solveZinTaskSpace(C, q, 10)
+
+z = solveZinQSpace(q, 10)
+#z = solveZinTaskSpace(C, q, 10)
 
