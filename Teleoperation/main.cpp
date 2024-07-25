@@ -150,6 +150,11 @@ int main(int argc,char **argv)
     const double tau = .05; // Desired frequency in Hz
     const std::chrono::milliseconds interval(static_cast<int>(1000.0 * tau));
 
+    // Safety
+    bool move_button_on = false;
+    const std::chrono::milliseconds time_until_move(100);
+    auto move_last_pressed = std::chrono::steady_clock::now();
+
     while(1)
     {
         OT.pull(C);
@@ -175,6 +180,21 @@ int main(int argc,char **argv)
                     || is_move_button_pressed(&G, 1)
                 #endif
         ) {
+            if (!move_button_on) {
+                move_button_on = true;
+                move_last_pressed = std::chrono::steady_clock::now();
+            }
+            
+            auto now = std::chrono::steady_clock::now();
+            std::chrono::duration<double, std::milli> elapsed_time = now - move_last_pressed;
+            auto time_til_move = time_until_move - std::chrono::duration_cast<std::chrono::milliseconds>(elapsed_time);
+            if (time_til_move.count() > 0) {
+                reset_data(&l_arm, "l_gripper", &C);
+                #if USE_BOTH_ARMS
+                    reset_data(&r_arm, "r_gripper", &C);
+                #endif
+            }
+
             KOMO komo(C, 1., 1, 2, true);
             
             komo.setConfig(C, true);
@@ -216,6 +236,7 @@ int main(int argc,char **argv)
         ) {
             bot.home(C);
             last_komo = bot.get_q();
+            move_button_on = false;
         }
         else
         {
@@ -224,6 +245,7 @@ int main(int argc,char **argv)
             #if USE_BOTH_ARMS
                 reset_data(&r_arm, "r_gripper", &C);
             #endif
+            move_button_on = false;
         }
 
          // Reset translation and rotation offsets for the target frame if no movement command
