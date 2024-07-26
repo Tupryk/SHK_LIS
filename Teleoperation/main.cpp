@@ -86,6 +86,21 @@ void reset_data(TrackingData* arm, const char* endeffector, rai::Configuration* 
     arm->rotation_offset.append(initial_gripper_rot);
 }
 
+bool joint_target_dangerous(arr target, arr current, float limit)
+{
+    #if USE_BOTH_ARMS
+        int joint_count = 14;
+    #else
+        int joint_count = 7;
+    #endif
+    for (int i = 0; i < joint_count; i++) {
+        if (abs(target.elem(i)-current.elem(i)) >= limit) {
+            return true;
+        }
+    }
+    return false;
+}
+
 int main(int argc,char **argv)
 {
     // Config
@@ -162,20 +177,7 @@ int main(int argc,char **argv)
         
         auto loop_start = std::chrono::steady_clock::now();
 
-        if (-C.eval(FS_negDistance, {"l_gripper", "l_gripper_target"}).elem(0) > .2
-                #if USE_BOTH_ARMS
-                    || -C.eval(FS_negDistance, {"r_gripper", "r_gripper_target"}).elem(0) > .2
-                #endif
-        ) {
-            // Safety measure: Don't move if the target possition is too far away
-            bot.stop(C);
-            reset_data(&l_arm, "l_gripper", &C);
-            #if USE_BOTH_ARMS
-                reset_data(&r_arm, "r_gripper", &C);
-            #endif
-            std::cout << "Safety measure activated! Robot did not follow target.\n";
-        }
-        else if (is_move_button_pressed(&G, 0)
+        if (is_move_button_pressed(&G, 0)
                 #if USE_BOTH_ARMS
                     || is_move_button_pressed(&G, 1)
                 #endif
@@ -214,20 +216,31 @@ int main(int argc,char **argv)
             #endif
 
             auto ret = NLP_Solver(komo.nlp(), 0).solve();
-
             arr q = komo.getPath_qOrg();
-            arr q_dot_ref = (q[0]-last_komo)/tau;
 
-            arr q_atdelta = q[0] + delta*q_dot_ref;
-            arr q_at2delta = q[0] + 2.*delta*q_dot_ref;  
-            arr q_at10delta = q[0] + 5.*delta*q_dot_ref;  
-            
-            double overwrite_time = bot.get_t();
-            bot.move((q_atdelta, q_at2delta, q_at10delta).reshape(-1, q[0].N), {delta, 2.*delta, 10.*delta}, true, overwrite_time);
-            bot.move((q_atdelta, q_at2delta).reshape(-1, q[0].N), {1.5*delta, 4.*delta}, true, overwrite_time);
-            bot.move(q_at2delta.reshape(-1, q[0].N), {4.*delta}, true, overwrite_time);
-            last_komo = q[0];
-            bot.sync(C, 0);
+            if (joint_target_dangerous(q[0], bot.get_q(), .3)) {
+                // Safety measure: Don't move if the target possition is too far away
+                bot.stop(C);
+                reset_data(&l_arm, "l_gripper", &C);
+                #if USE_BOTH_ARMS
+                    reset_data(&r_arm, "r_gripper", &C);
+                #endif
+                std::cout << "Safety measure activated! Robot did not follow target.\n";
+            }
+            else {
+                arr q_dot_ref = (q[0]-last_komo)/tau;
+
+                arr q_atdelta = q[0] + delta*q_dot_ref;
+                arr q_at2delta = q[0] + 2.*delta*q_dot_ref;  
+                arr q_at10delta = q[0] + 5.*delta*q_dot_ref;  
+                
+                double overwrite_time = bot.get_t();
+                bot.move((q_atdelta, q_at2delta, q_at10delta).reshape(-1, q[0].N), {delta, 2.*delta, 10.*delta}, true, overwrite_time);
+                bot.move((q_atdelta, q_at2delta).reshape(-1, q[0].N), {1.5*delta, 4.*delta}, true, overwrite_time);
+                bot.move(q_at2delta.reshape(-1, q[0].N), {4.*delta}, true, overwrite_time);
+                last_komo = q[0];
+                bot.sync(C, 0);
+            }
         }
         else if (G.getButtonPressed(0)==BTN_Y
                     #if USE_BOTH_ARMS
