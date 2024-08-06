@@ -216,7 +216,7 @@ int main(int argc,char **argv)
 
         auto loop_start = std::chrono::steady_clock::now();
         
-        recorder.recordFrame(frameNumber++, moving);
+        recorder.recordFrame(frameNumber++, true);
         // immediatly after recording the frame, we log the EE pose
         if (moving){
             arr l_gripper_pos = C.getFrame("l_gripper")->getPosition();
