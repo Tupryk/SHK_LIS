@@ -6,6 +6,7 @@
 #include <BotOp/bot.h>
 #include <Optim/NLP_Solver.h>
 #include <Gamepad/gamepad.h>
+#include <include/CameraRecorder.h>
 
 #define USE_BOTH_ARMS 0 // USING BOTH ARMS IS STILL NOT WORKING PERFECTLY, USE AT OWN RISK!!!
 #define TRANSLATION_SCALE 1
@@ -103,6 +104,15 @@ bool joint_target_dangerous(arr target, arr current, float limit)
 
 int main(int argc,char **argv)
 {
+    // Paul
+    auto CAMERA_PORT_1 = 4; 
+    auto CAMERA_PORT_2 = 10; //disabled: -1
+    bool SAVE_VIDEO = true;
+    const int FPS = 20; // Desired frequency in frames per second
+    //const double tau = 1./FPS; // Desired time between frames
+    // end Paul
+
+
     // Config
     rai::Configuration C;
     #if USE_BOTH_ARMS
@@ -122,6 +132,29 @@ int main(int argc,char **argv)
     arr qHome = C.getJointState();
     arr last_komo = bot.get_q();
     arr q_dot_ref = bot.get_qDot();
+
+    // PAUL
+    // INITIALIZE RECORDING STUFF
+    // create folder with timestamp name
+    auto timestamp = std::chrono::system_clock::now();
+    std::string folder_name = "recordings_" + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(timestamp.time_since_epoch()).count());
+    std::filesystem::create_directory(folder_name);
+
+    //init camera
+    CameraRecorder recorder(CAMERA_PORT_1, CAMERA_PORT_2, FPS, folder_name, SAVE_VIDEO); // camera port, second camera port, FPS
+    recorder.init();
+    auto frameNumber = 1;
+
+    // file to write poses to
+    std::ofstream poses_file;
+    poses_file.open(folder_name + "/poses.txt");
+
+    // file to write proprioceptives to
+    std::ofstream proprioceptive_file;
+    proprioceptive_file.open(folder_name + "/proprioceptive.txt");
+    
+    bot.gripperClose(rai::_left);
+    // END PAUL
 
     // Mocap
     std::cout << "Initializing mocap...";
@@ -175,7 +208,27 @@ int main(int argc,char **argv)
         OT.pull(C);
         if(C.view(false)=='q' || G.quitSignal.get()) break;
         
+        auto moving = false;
+        
+        if (is_move_button_pressed(&G, 0)){
+            moving = true;
+        }
+
         auto loop_start = std::chrono::steady_clock::now();
+        
+        recorder.recordFrame(frameNumber++, true);
+        // immediatly after recording the frame, we log the EE pose
+        if (moving){
+            arr l_gripper_pos = C.getFrame("l_gripper")->getPosition();
+            arr l_gripper_quat = C.getFrame("l_gripper")->getQuaternion();
+            arr l_joint_state = C.getJointState();
+            arr l_tau_external = bot.get_tauExternal();
+            bool l_is_gripper_open = (bot.gripperPos(rai::_left) > .005 ? true : false);
+
+
+            poses_file << l_gripper_pos << " " << l_gripper_quat << std::endl;
+            proprioceptive_file << l_joint_state << " " << l_tau_external <<  " " << l_is_gripper_open  << std::endl;
+        }
 
         if (is_move_button_pressed(&G, 0)
                 #if USE_BOTH_ARMS
@@ -280,5 +333,11 @@ int main(int argc,char **argv)
             std::this_thread::sleep_for(sleep_duration);
         }
     }
+
+
+    // finalize recording
+    recorder.finalize();
+    poses_file.close();
+
     return 0;
 }
