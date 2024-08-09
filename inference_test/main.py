@@ -57,7 +57,7 @@ while True:
         while not bot.gripperDone(ry._left):
             bot.sync(C)
     else:
-        gripper_move = client_input["action"][-1]
+        gripper_open = client_input["action"][-1] > .5
 
         bot.moveTo(client_input["action"][:7], overwrite=True)
         bot.sync(C)
