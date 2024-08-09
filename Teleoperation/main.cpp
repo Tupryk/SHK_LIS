@@ -207,24 +207,18 @@ int main(int argc,char **argv)
     {
         OT.pull(C);
         if(C.view(false)=='q' || G.quitSignal.get()) break;
-        
-        auto moving = false;
-        
-        if (is_move_button_pressed(&G, 0)){
-            moving = true;
-        }
 
         auto loop_start = std::chrono::steady_clock::now();
         
-        recorder.recordFrame(frameNumber++, true);
         // immediatly after recording the frame, we log the EE pose
-        if (moving){
+        recorder.recordFrame(0, false);
+        if (move_button_on){
+            recorder.recordFrame(frameNumber++, true);
             arr l_gripper_pos = C.getFrame("l_gripper")->getPosition();
             arr l_gripper_quat = C.getFrame("l_gripper")->getQuaternion();
             arr l_joint_state = C.getJointState();
             arr l_tau_external = bot.get_tauExternal();
             bool l_is_gripper_open = (bot.gripperPos(rai::_left) > .005 ? true : false);
-
 
             poses_file << l_gripper_pos << " " << l_gripper_quat << std::endl;
             proprioceptive_file << l_joint_state << " " << l_tau_external <<  " " << l_is_gripper_open  << std::endl;
@@ -271,7 +265,7 @@ int main(int argc,char **argv)
             auto ret = NLP_Solver(komo.nlp(), 0).solve();
             arr q = komo.getPath_qOrg();
 
-            if (joint_target_dangerous(q[0], bot.get_q(), .3)) {
+            if (joint_target_dangerous(q[0], bot.get_q(), .4)) {
                 // Safety measure: Don't move if the target possition is too far away
                 bot.stop(C);
                 reset_data(&l_arm, "l_gripper", &C);

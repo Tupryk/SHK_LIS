@@ -7,7 +7,6 @@ import numpy as np
 # Set the path to the main directory containing subdirectories
 main_directory = '/home/eckart/SHK_LIS/Teleoperation/recordings/'
 
-
 def process_proprioceptive_data(file_path):
     qpos_data = []
     tau_external_data = []
@@ -56,7 +55,7 @@ def save_hdf5(filename, qpos_data, tau_external_data, cam1_images, cam2_images):
         hdf.create_dataset("/action", data=qpos_data[1:])
         
         observations_group = hdf.create_group("/observations")
-        observations_group.create_dataset("qpos", data=qpos_data)
+        observations_group.create_dataset("qpos", data=qpos_data[:-1])
         observations_group.create_dataset("qvel", data=[])
         observations_group.create_dataset("tau", data=tau_external_data)
 
@@ -67,6 +66,9 @@ def save_hdf5(filename, qpos_data, tau_external_data, cam1_images, cam2_images):
         hdf.create_dataset("/waypoints", data=[])
 
 
+# Initialize an index counter for naming the HDF5 files
+index = 32
+
 for subdir in os.listdir(main_directory):
     subdir_path = os.path.join(main_directory, subdir)
     
@@ -75,16 +77,18 @@ for subdir in os.listdir(main_directory):
         print(f"Processing data folder: {data_folder_path}")
         
         # Process proprioceptive.txt
-        txt_file_path = os.path.join(data_folder_path, 'proprioceptive.txt')
+        txt_file_path = os.path.join(data_folder_path, '../proprioceptive.txt')
         qpos_data, tau_external_data = process_proprioceptive_data(txt_file_path)
         
         # Process images
-        images_folder_path = os.path.join(data_folder_path, 'images')
+        images_folder_path = os.path.join(data_folder_path, '')
         cam1_images, cam2_images = process_images(images_folder_path)
         
-        # Save to HDF5
-        output_hdf5_file = os.path.join(main_directory, f"{subdir}.hdf5")
+        # Save to HDF5 with the new naming convention
+        output_hdf5_file = os.path.join(main_directory, f"episode_{index}.hdf5")
         save_hdf5(output_hdf5_file, qpos_data, tau_external_data, cam1_images, cam2_images)
         
         print(f"Saved HDF5 file: {output_hdf5_file}")
-
+        
+        # Increment the index for the next episode
+        index += 1
