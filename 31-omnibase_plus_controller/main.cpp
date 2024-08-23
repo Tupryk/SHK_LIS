@@ -19,36 +19,36 @@ void moveOmnibase(){
     
     int button_pressed = G.getButtonPressed();
     arr target;
-    float target_dist = .5;
-    float target_rot = -.1;
+    float target_dist = .2;
+    float target_rot = .2;
+    float x = sin(omnibase_joint_state.elem(0));
+    float y = cos(omnibase_joint_state.elem(0));
+    arr omnibase_joint_state = bot.get_q();
     switch(button_pressed) {
-      case BTN_A:
-        target = arr{-target_dist, 0., 0.};
+      case BTN_A: // Right
+        target = target_dist * arr{y, -x, 0.};
         break;
-      case BTN_Y:
-        target = arr{target_dist, 0., 0.};
+      case BTN_Y: // Left
+        target = target_dist * arr{-y, x, 0.};
         break;
-      case BTN_X:
-        target = arr{0., -target_dist, 0.};
+      case BTN_X: // Forwards
+        target = target_dist * arr{-x, -y, 0.};
         break;
-      case BTN_B:
-        target = arr{0., target_dist, 0.};
+      case BTN_B: // Backwards
+        target = target_dist * arr{x, y, 0.};
         break;
-      case BTN_L:
+      case BTN_L: // Turn counter-clockwise
         target = arr{0., 0., target_rot};
         break;
-      case BTN_R:
+      case BTN_R: // Turn clockwise
         target = arr{0., 0., -target_rot};
         break;
       default:
         target = arr{0., 0., 0.};
         break;
     }
-    arr omnibase_joint_state = bot.get_q();
     target += omnibase_joint_state;
-    // arr omnibase_pos = C.getFrame("omnibase")->getPosition();
-    // target.elem(0) += omnibase_pos.elem(0);
-    // target.elem(1) += omnibase_pos.elem(1);
+
     bot.moveTo(target, {3.}, true);
     bot.sync(C);
     if(G.quitSignal.get()) break;
