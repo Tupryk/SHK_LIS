@@ -93,16 +93,16 @@ def find_min_z_coordinate_index(values):
     return max_index
 
 # just extract the max between first and last gripper width change ---- maybe change in future
-max_pos = pos[gripper_switch_waypoints[0]:gripper_switch_waypoints[-1]+1]
+max_pos = pos[switch_indices[0]:switch_indices[-1]+1]
 
-min_index = find_min_z_coordinate_index(pos)
-print(min_index)
+min_index = find_min_z_coordinate_index(max_pos)
+print(min_index+switch_indices[0])
 
-max_index = find_max_z_coordinate_index(pos[min_index:])
-print(max_index)
+max_index = find_max_z_coordinate_index(max_pos[min_index:])
+print(max_index+min_index+switch_indices[0])
 
 
-C.addFrame('max_after_min'). setShape(ry.ST.marker, [.1]) .setPosition(pos[max_index]) .setColor([64,128,64])
+C.addFrame('max_after_min'). setShape(ry.ST.marker, [.1]) .setPosition(pos[switch_indices[0]+max_index+min_index]) .setColor([64,128,64])
 ###############################################################################################
 
 C.view(True, "height waypoint added")
