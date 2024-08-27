@@ -1,7 +1,7 @@
 import robotic as ry 
 import numpy as np 
 
-def create_n_boxes(C, N, position='fixed', shelf = False):
+def create_n_boxes(C, N, position='fixed'):
 
     color_map = [[1,0,.5], # pink
                 [0.5,1,0], # lime green
@@ -21,7 +21,7 @@ def create_n_boxes(C, N, position='fixed', shelf = False):
         if position == 'fixed':
             position_val1 = 0.13 * (i - 2.5)
             C.addFrame(box_name) \
-                .setPosition([position_val1, 0.05, 0.705]) \
+                .setPosition([position_val1, 0.15, 0.705]) \
                 .setShape(ry.ST.ssBox, size=[0.04, 0.04, 0.12, 0.001]) \
                 .setColor(color_map[i % len(color_map)]) \
                 .setContact(True) \
@@ -35,15 +35,5 @@ def create_n_boxes(C, N, position='fixed', shelf = False):
                 .setColor(color_map[i % len(color_map)]) \
                 .setContact(True) \
                 .setMass(1e-2)
-    
-    if shelf is True:
-        C.addFrame('shelf') \
-                .setPosition([-0.75, 0.05, 1.405]) \
-                .setShape(ry.ST.ssBox, size=[0.45, 0.9, 1.5, 0.001]) \
-                .setColor([1,1,.5]) \
-                .setContact(True) \
-                .setMass(1e-2)
-
-
     
     return C

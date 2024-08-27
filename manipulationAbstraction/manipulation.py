@@ -32,7 +32,7 @@ class ManipulationModelling():
             self.komo.addQuaternionNorms()
 
         if accumulated_collisions:
-            self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e1])
+            self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e0])
 
         self.komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq, scale=[1e0])
 
@@ -50,12 +50,12 @@ class ManipulationModelling():
         if accumulated_collisions:
             self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e0])
 
-    def setup_pick_and_place_waypoints(self, gripper, obj, phases = 2., homing_scale=1e-2, velocity_scale=1e-1, accumulated_collisions=True, joint_limits=True, quaternion_norms=False):
+    def setup_pick_and_place_waypoints(self, gripper, obj, homing_scale=1e-2, velocity_scale=1e-1, accumulated_collisions=True, joint_limits=True, quaternion_norms=False):
         """
         setup a 2 phase pick-and-place problem, with a pick switch at time 1, and a place switch at time 2
         the place mode switch at the final time two might seem obselete, but this switch also implies the geometric constraints of placeOn
         """
-        self.komo = ry.KOMO(self.C, phases, 1, 1, accumulated_collisions)
+        self.komo = ry.KOMO(self.C, 2., 1, 1, accumulated_collisions)
         self.komo.addControlObjective([], order=0, scale=homing_scale)
         self.komo.addControlObjective([], order=1, scale=velocity_scale)
         if accumulated_collisions:
@@ -112,7 +112,7 @@ class ManipulationModelling():
             rrt.setExplicitCollisionPairs(explicitCollisionPairs)
 
     def add_helper_frame(self, type, parent, name, initFrame):
-        f = self.komo.addStableFrame(type, parent, name, initFrame)
+        f = self.komo.addStableFrame(name, parent, type, True, initFrame)
         f.setShape(ry.ST.marker, [.2])
         f.setColor([1., 0., 1.])
         #f.joint.sampleSdv=1.
@@ -399,7 +399,7 @@ class ManipulationModelling():
             comp = objs[0]
             del objs[0]
             for obj in objs:
-                self.komo.addObjective(time_interval, ry.FS.negDistance, [comp, obj], ry.OT.ineq, [1e2], [-margin])
+                self.komo.addObjective(time_interval, ry.FS.negDistance, [comp, obj], ry.OT.ineq, [1e1], [-margin])
 
     def keep_dist_pairwise(self, time_interval, objs_lst1, margin = 0.001):
         """
@@ -484,11 +484,12 @@ class ManipulationModelling():
                 if not self.ret.feasible:
                     print(f'  -- infeasible:{self.info}\n     {self.ret}')
                     if verbose>1:
-                        print(self.komo.report(False, True))
+                        print(self.komo.report(True, True))
                         self.komo.view(True, f"failed: {self.info}\n{self.ret}")
                     if verbose>2:
                         while(self.komo.view_play(True, 1.)):
                             pass
+                    
                 else:
                     print(f'  -- feasible:{self.info}\n     {self.ret}')
                     if verbose>2:
@@ -543,3 +544,4 @@ class ManipulationModelling():
     @property
     def feasible(self):
         return self.ret.feasible
+    
