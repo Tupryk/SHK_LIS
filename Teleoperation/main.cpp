@@ -106,7 +106,7 @@ int main(int argc,char **argv)
 {
     // Paul
     auto CAMERA_PORT_1 = 4; 
-    auto CAMERA_PORT_2 = 10; //disabled: -1
+    auto CAMERA_PORT_2 = -1; //disabled: -1
     bool SAVE_VIDEO = true;
     const int FPS = 20; // Desired frequency in frames per second
     //const double tau = 1./FPS; // Desired time between frames
@@ -203,6 +203,12 @@ int main(int argc,char **argv)
     const std::chrono::milliseconds time_until_move(100);
     auto move_last_pressed = std::chrono::steady_clock::now();
 
+    // Prepare camera
+    for (int i = 0; i < 100; i++) {
+        recorder.recordFrame(0, false);
+    }
+    std::cout << "Ready.\n";
+
     while(1)
     {
         OT.pull(C);
@@ -218,10 +224,9 @@ int main(int argc,char **argv)
             arr l_gripper_quat = C.getFrame("l_gripper")->getQuaternion();
             arr l_joint_state = C.getJointState();
             arr l_tau_external = bot.get_tauExternal();
-            bool l_is_gripper_open = (bot.gripperPos(rai::_left) > .005 ? true : false);
 
             poses_file << l_gripper_pos << " " << l_gripper_quat << std::endl;
-            proprioceptive_file << l_joint_state << " " << l_tau_external <<  " " << l_is_gripper_open  << std::endl;
+            proprioceptive_file << l_joint_state << " " << l_tau_external <<  " " << !l_arm.gripper_closed  << std::endl;
         }
 
         if (is_move_button_pressed(&G, 0)
