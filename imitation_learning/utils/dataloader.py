@@ -1,5 +1,7 @@
 import os
 from PIL import Image
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
@@ -21,10 +23,9 @@ class CustomImageDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = os.path.join(self.root_dir, self.image_files[idx])
-        image = Image.open(img_path).convert("RGB") #.convert("L")  # Convert to grayscale if needed
+        image = Image.open(img_path).convert("RGB") 
         if self.transform:
             image = self.transform(image)
-            #print("shape img", image.shape)
-
+            
         return image
 

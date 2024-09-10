@@ -3,85 +3,90 @@ import torch.nn as nn
 
 # Define the Convolutional VAE model
 class ConvVAE(nn.Module):
-    def __init__(self, latent_dim):
+    def __init__(self, latent_dim, n_layers):
         super(ConvVAE, self).__init__()
+        self.n_layers = n_layers
+
+        self.layers = [32, 64, 128, 256, 512]
+        self.lin_mult = [128, 64, 32, 16, 8]
+        self.pred_head = [32]
+        self.n_layers = n_layers
+        self.index = self.lin_mult[n_layers - 1]
 
         # Encoder: Convolutional layers
         self.encoder = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(32),
-            nn.LeakyReLU(),
+            nn.Conv2d(3, self.layers[0], kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(self.layers[0]),
+            nn.ReLU(),
 
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(64),
-            nn.LeakyReLU(),
+            nn.Conv2d(self.layers[0], self.layers[1], kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(self.layers[1]),
+            nn.ReLU(),
 
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(128),
-            nn.LeakyReLU(),
+            nn.Conv2d(self.layers[1], self.layers[2], kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(self.layers[2]),
+            nn.ReLU(),
 
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(256),
-            nn.LeakyReLU(),
+            #nn.Conv2d(self.layers[2], self.layers[3], kernel_size=3, stride=2, padding=1),
+            #nn.BatchNorm2d(self.layers[3]),
+            #nn.ReLU(),
 
-            nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(512),
-            nn.LeakyReLU()
+            #nn.Conv2d(layers[3], layers[4], kernel_size=3, stride=2, padding=1),
+            #nn.BatchNorm2d(layers[4]),
+            #nn.ReLU()
         )
 
         # Fully connected layers for mean and log-variance
-        self.fc_mu = nn.Linear(512 * 8 * 8, latent_dim)
-        self.fc_logvar = nn.Linear(512 * 8 * 8, latent_dim)
+        self.fc_mu = nn.Linear(self.layers[2] * self.index * self.index, latent_dim)
+        self.fc_logvar = nn.Linear(self.layers[2] * self.index * self.index, latent_dim)
 
         # Decoder: Fully connected layer to reshape into image format
-        self.fc_decode = nn.Linear(latent_dim, 512 * 8 * 8)
+        self.fc_decode = nn.Linear(latent_dim, self.layers[2] * self.index * self.index)
 
         # Decoder: Transposed convolutional layers
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(512, 256, kernel_size=3, stride=2, padding=1, output_padding=1),  # (batch_size, 64, 7, 7)
-            nn.BatchNorm2d(256),
-            nn.LeakyReLU(),
-            nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=1),  # (batch_size, 64, 7, 7)
-            nn.BatchNorm2d(128),
-            nn.LeakyReLU(),
-            nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1 , output_padding=1),  # (batch_size, 64, 7, 7)
-            nn.BatchNorm2d(64),
-            nn.LeakyReLU(),
-            nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1),   # (batch_size, 32, 14, 14)
-            nn.BatchNorm2d(32),
-            nn.LeakyReLU(),
+            #nn.ConvTranspose2d(layers[4], layers[3], kernel_size=3, stride=2, padding=1, output_padding=1),  # (batch_size, layers[1], 7, 7)
+            #nn.BatchNorm2d(layers[3]),
+            #nn.ReLU(),
+            #nn.ConvTranspose2d(self.layers[3], self.layers[2], kernel_size=3, stride=2, padding=1, output_padding=1),  # (batch_size, layers[1], 7, 7)
+            #nn.BatchNorm2d(self.layers[2]),
+            #nn.ReLU(),
+            nn.ConvTranspose2d(self.layers[2], self.layers[1], kernel_size=3, stride=2, padding=1 , output_padding=1),  # (batch_size, layers[1], 7, 7)
+            nn.BatchNorm2d(self.layers[1]),
+            nn.ReLU(),
+            nn.ConvTranspose2d(self.layers[1], self.layers[0], kernel_size=3, stride=2, padding=1, output_padding=1),   # (batch_size, layers[0], 14, 14)
+            nn.BatchNorm2d(self.layers[0]),
+            nn.ReLU(),
         )
 
         self.final_layer = nn.Sequential(
-            nn.ConvTranspose2d(32, 32, kernel_size=3, stride=2, padding=1, output_padding=1),    # (batch_size, 1, 28, 28)
-            nn.BatchNorm2d(32),
-            nn.LeakyReLU(),
-            nn.Conv2d(32, 3, kernel_size=3, padding=1),  # (batch_size, 128, 3, 3)
+            nn.ConvTranspose2d(self.layers[0], self.layers[0], kernel_size=3, stride=2, padding=1, output_padding=1),    # (batch_size, 1, 28, 28)
+            nn.BatchNorm2d(self.layers[0]),
+            nn.ReLU(),
+            nn.Conv2d(self.layers[0], 3, kernel_size=3, padding=1),  # (batch_size, layers[2], 3, 3)
             nn.Sigmoid()  # Output should be between 0 and 1
         )
 
     def encode(self, x):
         # Forward pass through encoder
-        #print("Encoder x:", x.shape)
         encoded = self.encoder(x)
         encoded = torch.flatten(encoded, start_dim=1)
-        #print("Encoder encoded:", encoded.shape)
+        #print(f"encoded flat shape: {encoded.shape}")
         mu = self.fc_mu(encoded)
-        #print("Encoder mu:", mu.shape)
+        #print(f"mu shape: {mu.shape}")
         log_var = self.fc_logvar(encoded)
-        #print("Encoder logvar:", log_var.shape)
-
+        #print(f"log var shape: {log_var.shape}")
         return mu, log_var
 
     def reparameterize(self, mu, log_var):
         # Reparameterization trick
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
-        return mu + eps * std
+        return eps * std + mu
 
     def decode(self, z):
         # Forward pass through decoder
-        x = self.fc_decode(z).view(-1, 512, 8, 8)  # Reshape to the size for convolutional decoder
+        x = self.fc_decode(z).view(-1, self.layers[2], self.index, self.index)  # Reshape to the size for convolutional decoder
         x = self.decoder(x)
         x = self.final_layer(x)
         return x
