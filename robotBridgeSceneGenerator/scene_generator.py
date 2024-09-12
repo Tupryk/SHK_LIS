@@ -2,6 +2,9 @@ import robotic as ry
 import manipulation as manip
 import numpy as np
 import robot_execution as robex
+import random
+import math 
+
 
 C = ry.Config()
 C.addFile(ry.raiPath('../rai-robotModels/scenarios/pandaSingle.g'))
@@ -36,11 +39,43 @@ table = "table"
 C.view()
 
 
+def sample_arena():
+    a = 0.5 
+    b = 0.4  
+    z_coord = 0.745  # Fixed Z-coordinate
 
+    r = math.sqrt(random.uniform(0, 1))
+
+    angle = random.uniform(0, 2 * math.pi)
+
+    x = r * a * math.cos(angle)
+    y = 0.2 + r * b * math.sin(angle)  # Centered at (0, 0.2)
+
+    return [x, y, z_coord]
+
+def draw_arena():
+    a = 0.5  # Semi-major axis (radius in the x direction)
+    b = 0.4  # Semi-minor axis (radius in the y direction)
+    z_coord = 0.745  # Fixed Z-coordinate
+
+    for i in range(100):
+        angle = random.uniform(0, 2 * math.pi)
+        
+        x = a * math.cos(angle)
+        y = .2+ b * math.sin(angle)
+        midpoint = [x, y, z_coord]
+        
+        C.addFrame(f"point{i}").setPosition(midpoint).setShape(ry.ST.marker, size=[.07]).setColor([1, 0, 0])
+
+draw_arena()
+### TODO TODO dont look at this now
 def return_house_path(housePosition):
     bridge_paths = []
 
     qStart = C.getJointState()
+
+    for i in range(3):
+        pass 
 
     box = "box1"
     possible = False
@@ -57,7 +92,7 @@ def return_house_path(housePosition):
 
             # Define the in between joint states when going for the grasp
             M1 = M.sub_motion(0)
-            M1.no_collision([.3,.7], palm, box, margin=.05)
+            M1.keep_distance([.3,.7], palm, box, margin=.05)
             M1.retract([.0, .2], gripper)
             M1.approach([.8, 1.], gripper)
             path1 = M1.solve()
@@ -66,8 +101,8 @@ def return_house_path(housePosition):
 
             # Define the in between joint states when placing the object
             M2 = M.sub_motion(1)
-            M2.no_collision([], table, box)
-            M2.no_collision([.2, .8], table, box, .04)
+            M2.keep_distance([], table, box)
+            M2.keep_distance([.2, .8], table, box, .04)
             path2 = M2.solve()
             if not M2.feasible:
                 continue
@@ -101,20 +136,20 @@ def return_house_path(housePosition):
                 continue
 
             # Define the in between joint states when going for the grasp
-            M3 = M.sub_motion(0)
-            M3.no_collision([.3,.7], palm, box, margin=.05)
-            M3.retract([.0, .2], gripper)
-            M3.approach([.8, 1.], gripper)
-            path1 = M3.solve()
-            if not M3.feasible:
+            M1 = M.sub_motion(0)
+            M1.keep_distance([.3,.7], palm, box, margin=.05)
+            M1.retract([.0, .2], gripper)
+            M1.approach([.8, 1.], gripper)
+            path1 = M1.solve()
+            if not M1.feasible:
                 continue
 
             # Define the in between joint states when placing the object
-            M4 = M.sub_motion(1)
-            M4.no_collision([], table, box)
-            M4.no_collision([], "box1", palm)
-            M4.no_collision([], "box2", palm)
-            M4.no_collision([.2, .8], table, box, .04)
+            M2 = M.sub_motion(1)
+            M2.keep_distance([], table, box)
+            M2.keep_distance([], "box1", palm)
+            M2.keep_distance([], "box2", palm)
+            M2.keep_distance([.2, .8], table, box, .04)
             path2 = M4.solve()
             if not M4.feasible:
                 continue
@@ -154,7 +189,7 @@ def return_house_path(housePosition):
 
         # Define the in between joint states when going for the grasp
         M5 = M.sub_motion(0)
-        M5.no_collision([.3, .7], palm, box, margin=.05)
+        M5.keep_distance([.3, .7], palm, box, margin=.05)
         M5.retract([.0, .2], gripper)
         M5.approach([.8, 1.], gripper)
         path1 = M5.solve()
@@ -163,12 +198,12 @@ def return_house_path(housePosition):
 
         # Define the in between joint states when placing the object
         M6 = M.sub_motion(1)
-        M6.no_collision([], table, box)
-        M6.no_collision([], "box1", palm)
-        M6.no_collision([], "box2", palm)
-        M6.no_collision([.0, .9], "box1", box)
-        M6.no_collision([.0, .9], "box2", box)
-        M6.no_collision([.2, .8], table, box, .04)
+        M6.keep_distance([], table, box)
+        M6.keep_distance([], "box1", palm)
+        M6.keep_distance([], "box2", palm)
+        M6.keep_distance([.0, .9], "box1", box)
+        M6.keep_distance([.0, .9], "box2", box)
+        M6.keep_distance([.2, .8], table, box, .04)
         M6.approach([.8, 1.], gripper)
         path2 = M6.solve()
         if not M6.feasible:
@@ -207,150 +242,63 @@ def move_blocks(housePosition):
     bridge_paths = []
 
     qStart = C.getJointState()
+    frameStart = 0
 
-    box = "box1"
-    possible = False
-    for graspDirection in ["x", "y", "z"]:
-        for placeDirection in ["z", "zNeg"]:
-            M = manip.ManipulationModelling(C, helpers=[gripper])
-            M.setup_pick_and_place_waypoints(gripper, box, homing_scale=1e-1)
-            M.grasp_box(1., gripper, box, palm, graspDirection)
-            M.place_box(2., box, table, palm, placeDirection)
-            M.target_relative_xy_position(2., box, table, housePosition)
-            
-            M.komo.addObjective([1., 2.], ry.FS.angularVel, [gripper], ry.OT.sos, [1e1])
+    for i in range(1,4):
 
-            M.solve()
-            if not M.feasible:
-                continue
+        box = f"box{i}"
+        possible = False
+        for graspDirection in ["x", "y", "z"]:
+            for placeDirection in ["z", "zNeg"]:
+                M = manip.ManipulationModelling(C, helpers=[gripper])
+                M.setup_pick_and_place_waypoints(gripper, box, homing_scale=1e-1)
+                M.grasp_box(1., gripper, box, palm, graspDirection)
+                M.place_box(2., box, table, palm, placeDirection)
+                M.target_relative_xy_position(2., box, table, sample_arena())
+                
+                M.komo.addObjective([2.], ry.FS.angularVel, [gripper], ry.OT.sos, [1e1])
+                
 
-            # Define the in between joint states when going for the grasp
-            M1 = M.sub_motion(0)
-            M1.no_collision([.3,.7], palm, box, margin=.05)
-            M1.retract([.0, .2], gripper)
-            M1.approach([.8, 1.], gripper)
-            path1 = M1.solve()
-            if not M1.feasible:
-                continue
+                M.keep_distances([2.], [f"box{i}" for i in range(1,4)], .1)
 
-            # Define the in between joint states when placing the object
-            M2 = M.sub_motion(1)
-            M2.no_collision([], table, box)
-            M2.no_collision([.2, .8], table, box, .06)
-            path2 = M2.solve()
-            if not M2.feasible:
-                continue
-            possible = True
-            break
-        if possible:
-            break
+                M.solve()
+                
+                if not M.feasible:
+                    continue
 
-    if not possible:
-        return False
-    
-    bridge_paths.append(path1)
-    bridge_paths.append(path2)
+                # Define the in between joint states when going for the grasp
+                M1 = M.sub_motion(0)
+                M1.keep_distance([.3,.7], palm, box, margin=.08)
+                M1.retract([.0, .2], gripper)
+                M1.approach([.8, 1.], gripper)
+                path1 = M1.solve()
+                if not M1.feasible:
+                    continue
 
-    frameStart = M.komo.getFrameState(0)
-    X = M.komo.getFrameState(1)
-    C.setFrameState(X)
-    C.setJointState(path2[-1])
+                # Define the in between joint states when placing the object
+                M2 = M.sub_motion(1)
+                M2.keep_distance([], table, box)
+                M2.keep_distance([.2, .8], table, box, .1)
+                path2 = M2.solve()
+                if not M2.feasible:
+                    continue
+                possible = True
+                break
+            if possible:
+                break
 
-    box = "box2"
-    possible = False
-    for graspDirection in ["x", "y", "z"]:
-        for placeDirection in ["z", "zNeg"]:
-            M = manip.ManipulationModelling(C, helpers=[gripper])
-            M.setup_pick_and_place_waypoints(gripper, box, homing_scale=1e-1)
-            M.grasp_box(1., gripper, box, palm, graspDirection)
-            M.place_box(2., box, table, palm, placeDirection)
-            M.komo.addObjective([1., 2.], ry.FS.quaternionDiff, [gripper, gripper], ry.OT.eq, [1e1])
-            M.komo.addObjective([2.], ry.FS.negDistance, ["box2", "box1"], ry.OT.eq, [1e1], [-.1])
-            M.komo.addObjective([2.], ry.FS.negDistance, ["box2", "box3"], ry.OT.ineq, [1e1], [-.07])
+        if not possible:
+            return False
+        
+        bridge_paths.append(path1)
+        bridge_paths.append(path2)
 
-            M.komo.addObjective([1., 2.], ry.FS.angularVel, [gripper], ry.OT.sos, [1e1])
+        if(i==1):
+            frameStart = M.komo.getFrameState(0)
+        X = M.komo.getFrameState(1)
+        C.setFrameState(X)
+        C.setJointState(path2[-1])
 
-            M.solve()
-            if not M.feasible:
-                continue
-
-            # Define the in between joint states when going for the grasp
-            M3 = M.sub_motion(0)
-            M3.no_collision([.3,.7], palm, box, margin=.05)
-            M3.retract([.0, .2], gripper)
-            M3.approach([.8, 1.], gripper)
-            path1 = M3.solve()
-            if not M3.feasible:
-                continue
-
-            # Define the in between joint states when placing the object
-            M4 = M.sub_motion(1)
-            M4.no_collision([], table, box)
-            M4.no_collision([], "box1", palm)
-            M4.no_collision([], "box2", palm)
-            M4.no_collision([.2, .8], table, box, .12)
-            path2 = M4.solve()
-            if not M4.feasible:
-                continue
-            possible = True
-            break
-        if possible:
-            break
-
-    if not possible:
-        return False
-    
-    bridge_paths.append(path1)
-    bridge_paths.append(path2)
-    
-    X = M.komo.getFrameState(1)
-    C.setFrameState(X)
-    C.setJointState(path2[-1])
-
-    box = "box3"
-    possible = False
-    for graspDirection in ["x", "y", "z"]:
-        for placeDirection in ["z", "zNeg"]:
-            M = manip.ManipulationModelling(C, helpers=[gripper])
-            M.setup_pick_and_place_waypoints(gripper, box, homing_scale=1e-1)
-            M.grasp_box(1., gripper, box, palm, graspDirection)
-            M.place_box(2., box, table, palm, placeDirection)
-            M.komo.addObjective([2.], ry.FS.negDistance, ["box3", "box2"], ry.OT.eq, [1e1], [-.1])
-            M.komo.addObjective([2.], ry.FS.negDistance, ["box3", "box2"], ry.OT.ineq, [1e1], [-.15])
-
-            M.komo.addObjective([1., 2.], ry.FS.angularVel, [gripper], ry.OT.sos, [1e1])
-
-
-            M.solve()
-            if not M.feasible:
-                continue
-
-            # Define the in between joint states when going for the grasp
-            M5 = M.sub_motion(0)
-            M5.no_collision([.3,.7], palm, box, margin=.05)
-            M5.retract([.0, .2], gripper)
-            M5.approach([.8, 1.], gripper)
-            path1 = M5.solve()
-            if not M5.feasible:
-                continue
-
-            # Define the in between joint states when placing the object
-            M6 = M.sub_motion(1)
-            M6.no_collision([], table, box)
-            M6.no_collision([.2, .8], table, box, .12)
-            path2 = M6.solve()
-            if not M6.feasible:
-                continue
-            possible = True
-            break
-        if possible:
-            break
-
-    if not possible:
-        return False
-    
-    bridge_paths.append(path1)
-    bridge_paths.append(path2)
     
     C.setFrameState(frameStart)
     C.setJointState(qStart)
@@ -376,5 +324,5 @@ def move_blocks(housePosition):
 attempt_count = 100
 for l in range(attempt_count):
     housePosition = [midpoint[0] + (np.random.random()*.2 -.1), midpoint[1] + (np.random.random()*.2 -.1)]
-    if move_blocks(housePosition):
+    if move_blocks(sample_arena()):
         continue

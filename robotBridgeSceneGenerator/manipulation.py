@@ -1,11 +1,11 @@
 import robotic as ry
-import random
 import numpy as np
 import time
+from itertools import combinations
 
 class ManipulationModelling():
 
-    def __init__(self, C: ry.Config, info=str(), helpers=[]):
+    def __init__(self, C, info=str(), helpers=[]):
         self.C = C
         self.info = info
         self.helpers = helpers
@@ -20,11 +20,13 @@ class ManipulationModelling():
             if not f:
                 self.C.addFrame(name)
 
+        self.komo: ry.KOMO=None
+
     def setup_inverse_kinematics(self, homing_scale=1e-1, accumulated_collisions=True, quaternion_norms=False):
         """
         setup a 1 phase single step problem
         """
-        self.komo = ry.KOMO(self.C, 1., 1, 0, accumulated_collisions)
+        self.komo = ry.KOMO(self.C, 1, 1, 0, accumulated_collisions)
         self.komo.addControlObjective([], order=0, scale=homing_scale)
         if quaternion_norms:
             self.komo.addQuaternionNorms()
@@ -33,6 +35,20 @@ class ManipulationModelling():
             self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e0])
 
         self.komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq, scale=[1e0])
+
+    def setup_multi_phase_komo(self, phases, slices_per_phase=1, accumulated_collisions=True):
+        """
+        setup a motion problem with multiple phases
+        """
+        self.komo = ry.KOMO()
+        self.komo.setConfig(self.C, accumulated_collisions)
+        self.komo.setTiming(phases, slices_per_phase, 1., 2)
+
+        self.komo.addControlObjective([], 1, 1e-1)
+        self.komo.addControlObjective([], 2, 1e-1)
+
+        if accumulated_collisions:
+            self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e0])
 
     def setup_pick_and_place_waypoints(self, gripper, obj, homing_scale=1e-2, velocity_scale=1e-1, accumulated_collisions=True, joint_limits=True, quaternion_norms=False):
         """
@@ -43,7 +59,7 @@ class ManipulationModelling():
         self.komo.addControlObjective([], order=0, scale=homing_scale)
         self.komo.addControlObjective([], order=1, scale=velocity_scale)
         if accumulated_collisions:
-            self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e0])
+            self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e1])
 
         if joint_limits:
             self.komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq, scale=[1e0])
@@ -77,16 +93,17 @@ class ManipulationModelling():
         self.komo.addControlObjective([], order=0, scale=homing_scale)
         self.komo.addControlObjective([], order=2, scale=acceleration_scale)
         self.komo.initWithWaypoints([q1], 1, interpolate=True, qHomeInterpolate=.5, verbose=0)
-        if accumulated_collisions:
-            self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e0])
         if quaternion_norms:
             self.komo.addQuaternionNorms()
 
+        if accumulated_collisions:
+            self.komo.addObjective([], ry.FS.accumulatedCollisions, [], ry.OT.eq, scale=[1e0])
+
         # zero vel at end
-        self.komo.addObjective([1.], ry.FS.qItself, [], ry.OT.eq, scale=[1e0], order=1);
+        self.komo.addObjective([1.], ry.FS.qItself, [], ry.OT.eq, scale=[1e0], order=1)
 
         # end point
-        self.komo.addObjective([1.], ry.FS.qItself, [], ry.OT.eq, scale=[1e0], target=q1);
+        self.komo.addObjective([1.], ry.FS.qItself, [], ry.OT.eq, scale=[1e0], target=q1)
 
     def setup_point_to_point_rrt(self, q0, q1, explicitCollisionPairs):
         rrt = ry.PathFinder()
@@ -95,7 +112,7 @@ class ManipulationModelling():
             rrt.setExplicitCollisionPairs(explicitCollisionPairs)
 
     def add_helper_frame(self, type, parent, name, initFrame):
-        f = self.komo.addStableFrame(type, parent, name, initFrame)
+        f = self.komo.addStableFrame(name, parent, type, True, initFrame)
         f.setShape(ry.ST.marker, [.2])
         f.setColor([1., 0., 1.])
         #f.joint.sampleSdv=1.
@@ -148,7 +165,7 @@ class ManipulationModelling():
             yzPlane = np.array([[1, 0, 0],[0, 1, 0]])
             align = [ry.FS.scalarProductXX, ry.FS.scalarProductXY]
         else:
-            raise Exception('pickDirection not defined:', pickDirection)
+            raise Exception('grasp_direction not defined:', grasp_direction)
 
         boxSize = self.C.frame(obj).getSize()[:3]
 
@@ -259,7 +276,19 @@ class ManipulationModelling():
         self.komo.addObjective([times[1]], ry.FS.positionDiff, [obj, '_push_end'], ry.OT.eq, [1e1])
         #obj end orientation: unchanged
         self.komo.addObjective([times[1]], ry.FS.quaternion, [obj], ry.OT.eq, [1e1], [], 1); #qobjPose.rot.getArr4d())
-    
+
+    def pull(self, times, obj, gripper, table):
+        self.add_helper_frame(ry.JT.transXYPhi, table, '_pull_end', obj)
+        
+        self.komo.addObjective([times[0]], ry.FS.vectorZ, [gripper], ry.OT.eq, [1e1], np.array([0,0,1]))
+        self.komo.addObjective([times[1]], ry.FS.vectorZ, [gripper], ry.OT.eq, [1e1], np.array([0,0,1]))
+        self.komo.addObjective([times[0]], ry.FS.vectorZ, [obj], ry.OT.eq, [1e1], np.array([0,0,1]))
+        self.komo.addObjective([times[1]], ry.FS.vectorZ, [obj], ry.OT.eq, [1e1], np.array([0,0,1]))
+
+        self.komo.addObjective([times[0]], ry.FS.positionRel, [gripper, obj], ry.OT.eq, 1e1*np.array([[1., 0., 0.], [0., 1., 0.]]), np.array([0, 0, 0]))
+        self.komo.addObjective([times[0]], ry.FS.negDistance, [gripper, obj], ry.OT.eq, [1e1], [-.005])
+        self.komo.addObjective([times[1]], ry.FS.positionDiff, [obj, '_pull_end'], ry.OT.eq, [1e1])
+
     def follow_path_on_plane(self, path: list, plane: str="z", moving_frame: str="l_gripper"):
         """
         This function supposes the the robot is already at the starting position!
@@ -267,6 +296,37 @@ class ManipulationModelling():
 
         TODO: Take direction of plane normal into account.
         """
+        start_pos = self.C.getFrame(moving_frame).getPosition()
+        if plane == "x":
+            plane_pos = np.array([start_pos[0], 0, 0])
+            threed_path = []
+            for p in path:
+                threed_path.append([0, p[0], p[1]]) # TODO: check if this makes sense
+        elif plane == "y":
+            plane_pos = np.array([0, start_pos[1], 0])
+            threed_path = []
+            for p in path:
+                threed_path.append([p[0], 0, p[1]])
+        elif plane == "z":
+            plane_pos = np.array([0, 0, start_pos[2]])
+            threed_path = []
+            for p in path:
+                threed_path.append([p[0], p[1], 0])
+        else:
+            raise Exception('Plane is not defined: ', plane)
+        
+        imp_axis = plane_pos/np.linalg.norm(plane_pos)
+        
+        phases = len(path)-1
+
+        self.komo.addObjective([], ry.FS.jointLimits, [], ry.OT.ineq)
+        self.komo.addObjective([1, phases], ry.FS.vectorZ, [moving_frame], ry.OT.eq, [1e1], imp_axis)
+        self.komo.addObjective([1, phases], ry.FS.position, [moving_frame], ry.OT.eq, imp_axis*1e1, plane_pos)
+
+        res = np.array([1, 1, 1]) - imp_axis
+        for i in range(1, len(path)):
+            self.komo.addObjective([i], ry.FS.position, [moving_frame], ry.OT.eq, res, threed_path[i])
+
         start_pos = self.C.getFrame(moving_frame).getPosition()
         if plane == "x":
             plane_pos = np.array([start_pos[0], 0, 0])
@@ -325,11 +385,29 @@ class ManipulationModelling():
             self.komo.addObjective([times[1]], ry.FS.positionDiff, [
                                 moving_frame, end_frame], ry.OT.eq, [1e1])
 
-    def no_collision(self, time_interval, obj1, obj2, margin=.001):
+    def keep_distance(self, time_interval, obj1, obj2, margin=.001):
         """
         inequality on distance between two objects
         """
         self.komo.addObjective(time_interval, ry.FS.negDistance, [obj1, obj2], ry.OT.ineq, [1e1], [-margin])
+
+    def keep_distances(self, time_interval, objs, margin=.001):
+        """
+        inequality on distance between multiple objects
+        """
+        while len(objs) > 1:
+            comp = objs[0]
+            del objs[0]
+            for obj in objs:
+                self.komo.addObjective(time_interval, ry.FS.negDistance, [comp, obj], ry.OT.ineq, [1e1], [-margin])
+
+    def keep_dist_pairwise(self, time_interval, objs_lst1, margin = 0.001):
+        """
+        automatic inequality on distance between multiple objects
+        """
+        pairwise_objs_lst = list(combinations(objs_lst1, 2))
+        for pair in pairwise_objs_lst:
+            self.komo.addObjective([time_interval], ry.FS.negDistance, [pair[0], pair[1]], ry.OT.ineq, [1e1], [-margin])
 
     def switch_pick():
         """
@@ -406,11 +484,12 @@ class ManipulationModelling():
                 if not self.ret.feasible:
                     print(f'  -- infeasible:{self.info}\n     {self.ret}')
                     if verbose>1:
-                        print(self.komo.report(False, True))
+                        print(self.komo.report(True, True))
                         self.komo.view(True, f"failed: {self.info}\n{self.ret}")
                     if verbose>2:
                         while(self.komo.view_play(True, 1.)):
                             pass
+                    
                 else:
                     print(f'  -- feasible:{self.info}\n     {self.ret}')
                     if verbose>2:
@@ -449,7 +528,20 @@ class ManipulationModelling():
         manip.setup_point_to_point_rrt(q0, q1, explicitCollisionPairs)
         return manip
     
+    # Debug functions
+    def fetch_name_error_type(self, data):
+        name_error_type_list = []
+        for key, value in data.items():
+            if isinstance(value, dict) and 'name' in value and 'err' in value and 'type' in value:
+                name_error_type_list.append((value['name'], value['err'], value['type']))
+        return name_error_type_list
+
+    
+    def print_name_error_type(self, data):
+        for name, error,  obj_type in data:
+            print("Name:", name, "Type:", obj_type, "Error:", error)
+    
     @property
     def feasible(self):
         return self.ret.feasible
-
+    
