@@ -40,7 +40,7 @@ C.view()
 
 
 def sample_arena():
-    a = 0.5 
+    a = 0.4 
     b = 0.4  
     z_coord = 0.745  # Fixed Z-coordinate
 
@@ -54,7 +54,7 @@ def sample_arena():
     return [x, y, z_coord]
 
 def draw_arena():
-    a = 0.5  # Semi-major axis (radius in the x direction)
+    a = 0.4  # Semi-major axis (radius in the x direction)
     b = 0.4  # Semi-minor axis (radius in the y direction)
     z_coord = 0.745  # Fixed Z-coordinate
 
@@ -136,20 +136,20 @@ def return_house_path(housePosition):
                 continue
 
             # Define the in between joint states when going for the grasp
-            M1 = M.sub_motion(0)
-            M1.keep_distance([.3,.7], palm, box, margin=.05)
-            M1.retract([.0, .2], gripper)
-            M1.approach([.8, 1.], gripper)
-            path1 = M1.solve()
-            if not M1.feasible:
+            M3 = M.sub_motion(0)
+            M3.keep_distance([.3,.7], palm, box, margin=.05)
+            M3.retract([.0, .2], gripper)
+            M3.approach([.8, 1.], gripper)
+            path1 = M3.solve()
+            if not M3.feasible:
                 continue
 
             # Define the in between joint states when placing the object
-            M2 = M.sub_motion(1)
-            M2.keep_distance([], table, box)
-            M2.keep_distance([], "box1", palm)
-            M2.keep_distance([], "box2", palm)
-            M2.keep_distance([.2, .8], table, box, .04)
+            M4 = M.sub_motion(1)
+            M4.keep_distance([], table, box)
+            M4.keep_distance([], "box1", palm)
+            M4.keep_distance([], "box2", palm)
+            M4.keep_distance([.2, .8], table, box, .04)
             path2 = M4.solve()
             if not M4.feasible:
                 continue
@@ -221,7 +221,7 @@ def return_house_path(housePosition):
     C.setJointState(qStart)
 
 
-    C.view()
+    # C.view()
     # robot = robex.Robot(C, on_real=False)
     # robot.goHome(C)
     # for i in range(3):
@@ -305,7 +305,7 @@ def move_blocks(housePosition):
 
 
     C.view()
-    robot = robex.Robot(C, on_real=False)
+    robot = robex.Robot(C, on_real=True)
     robot.goHome(C)
     for i in range(3):
         box = f"box{i+1}"
@@ -321,8 +321,23 @@ def move_blocks(housePosition):
     return bridge_paths
 
 
-attempt_count = 100
+attempt_count = 5
 for l in range(attempt_count):
     housePosition = [midpoint[0] + (np.random.random()*.2 -.1), midpoint[1] + (np.random.random()*.2 -.1)]
-    if move_blocks(sample_arena()):
-        continue
+    move_blocks(sample_arena())
+    path = return_house_path(housePosition)
+
+    if path:
+        with open(f'paths/path{l}.txt', 'w') as file:
+            for array in path:
+                file.write(' '.join(map(str, array)) + '\n')
+
+        box_pos = []
+        for i in range(3):
+            box_pos.append(C.getFrame(f"box{i+1}").getPosition())
+
+        with open(f'block_pos/block_pos{l}.txt', 'w') as file:
+            for pos in box_pos:
+                file.write(' '.join(map(str, pos)) + '\n')
+            
+
