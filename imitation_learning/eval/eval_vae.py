@@ -5,7 +5,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, random_split
 from utils.dataloader import CustomImageDataset
 from model.vae import ConvVAE
-from loss.vae_loss import vae_loss
+from loss.vae_loss import vae_loss, vae_loss_ssim
 import numpy as np 
 import matplotlib.pyplot as plt
 from skimage.metrics import structural_similarity as ssim  # for SSIM
@@ -13,10 +13,10 @@ from utils.utils import calculate_psnr
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Hyperparameters
-latent_dim = 6
-lr = 1e-4
+latent_dim = 32
+lr = 1e-3
 batch_size = 64
-epochs = 10000
+epochs = 2500
 n_layers = 3
 
 # Define the transformations
@@ -29,7 +29,7 @@ transform = transforms.Compose([
 dataset = CustomImageDataset(root_dir='data/scene_images', transform=transform)
 
 # Random seed for reproducibility 
-torch.manual_seed(42)
+#torch.manual_seed(42)
 
 # Define the size of train and test sets
 train_size = int(0.8 * len(dataset))  # 80% for training
@@ -48,7 +48,7 @@ optimizer = optim.Adam(model.parameters(), lr=lr)
 
 
 # Load the checkpoint
-checkpoint = torch.load('cpts/vae_10K_kdl000125.cpt')
+checkpoint = torch.load('cpts/vae_2dot5K_kdl1.cpt')
 
 print(f"Pretrained vae model loaded.")
 
@@ -60,16 +60,18 @@ optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
 # Evaluate on test data
 model.eval()
-test_loss, test_recons_loss, test_kdl_loss = 0, 0, 0
+test_loss, test_recons_loss, test_kdl_loss, test_ssim_loss = 0, 0, 0, 0
 mse_recon, ssim_recon, psnr_recon = 0, 0, 0  # Initialize metrics accumulators
 with torch.no_grad():
     for data in test_loader:
         data = data.to(device)
         reconstructed_x, mu, log_var = model(data)
-        loss, recons_loss, kdl_loss = vae_loss(reconstructed_x, data, mu, log_var)
+        loss, recons_loss, kdl_loss = vae_loss(reconstructed_x, data, mu, log_var, kdl_weight=1.0)
+        #loss, recons_loss, kdl_loss, ssim_loss = vae_loss_ssim(reconstructed_x, data, mu, log_var)
         test_loss += loss.item()
         test_recons_loss += recons_loss.item()
         test_kdl_loss += kdl_loss.item()
+        #test_ssim_loss += ssim_loss.item()
 
         # Convert tensors to numpy arrays for metric calculations
         data_np = data.cpu().numpy()
@@ -88,12 +90,12 @@ with torch.no_grad():
         # Calculate PSNR for this batch
         psnr_recon = np.mean([calculate_psnr(data_np[i], reconstructed_np[i]) for i in range(data_np.shape[0])])
 
-    print(f'Test Loss: {test_loss:.4f}, Recons Loss: {test_recons_loss:.4f}, KDL Loss: {test_kdl_loss:.4f}')
+    print(f'Test Loss: {test_loss:.4f}, Recons Loss: {test_recons_loss:.4f}, KDL Loss: {test_kdl_loss:.4f}, SSIM Loss: {test_ssim_loss:.4f}')
     print(f'Reconstruction Metrics: MSE: {mse_recon:.4f}, SSIM: {ssim_recon:.4f}, PSNR: {psnr_recon:.4f}')
 
 # Generate new images
 with torch.no_grad():
-    n_samples = 8
+    n_samples = 4
     z = torch.randn(n_samples, latent_dim).to(device)
     samples = model.decode(z).view(-1, 3, 256, 256)  # Adjusted to correct image size
 

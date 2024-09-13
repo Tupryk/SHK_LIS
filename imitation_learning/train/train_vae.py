@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 from utils.dataloader import CustomImageDataset
 from model.vae import ConvVAE
-from loss.vae_loss import vae_loss
+from loss.vae_loss import vae_loss, vae_loss_ssim
 import numpy as np 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -14,16 +14,16 @@ print(f"Device Name: {torch.cuda.get_device_name(device)}" if device.type == "cu
 
 # Hyperparameters
 latent_dim = 32
-lr = 1e-4
+lr = 1e-3
 batch_size = 64
-epochs = 2500
+epochs = 5000
 n_layers = 3
 # Define the transformations
 transform = transforms.Compose([
     transforms.Resize((256, 256)),  # Resize to 256x256 (you can change the size)
-    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+    #transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
     #transforms.RandomGrayscale(p=0.2),
-    transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
+    #transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
     transforms.ToTensor(),          # Convert image to tensor
 ])
 
@@ -62,19 +62,21 @@ scheduler = optim.lr_scheduler.OneCycleLR(
 # Training loop
 model.train()
 for epoch in range(epochs):
-    train_loss, train_recons_loss, train_kdl_loss = 0, 0, 0
+    train_loss, train_recons_loss, train_kdl_loss, train_ssim_loss = 0, 0, 0, 0
     for data in train_loader:  # Removed label handling as there is none
         data = data.to(device)
         optimizer.zero_grad()
         reconstructed_x, mu, log_var = model(data)
-        loss, recons_loss, kdl_loss = vae_loss(reconstructed_x, data, mu, log_var, kdl_weight = 0.00025)
+        loss, recons_loss, kdl_loss = vae_loss(reconstructed_x, data, mu, log_var, kdl_weight = 1.0)
+        #loss, recons_loss, kdl_loss, ssim_loss = vae_loss_ssim(reconstructed_x, data, mu, log_var, kdl_weight = 0.00025, ssim_weight = 0.1)
         loss.backward()
         optimizer.step()
         scheduler.step()
         train_loss += loss.item()
         train_recons_loss += recons_loss.item()
         train_kdl_loss += kdl_loss.item()
-    print(f'Epoch {epoch + 1}, Loss: {train_loss:.4f}, Recons Loss: {train_recons_loss:.4f}, KDL Loss: {train_kdl_loss:.4f}')
+        #train_ssim_loss += ssim_loss.item()
+    print(f'Epoch {epoch + 1}, Loss: {train_loss:.4f}, Recons Loss: {train_recons_loss:.4f}, KDL Loss: {train_kdl_loss:.4f}, SSIM Loss: {train_ssim_loss:.4f}')
 print(f'Finished Variation AutoEncoder.')
 
 # Define parameters to store in checkpoints cpts
@@ -85,6 +87,6 @@ checkpoint = {
 }
 
 # Save the checkpoint as 'vae.cpt'
-torch.save(checkpoint, 'cpts/vae_2dot5K_kdl00025.cpt')
+torch.save(checkpoint, 'cpts/vae_2dot5K_kdl1.cpt')
 print(f'Model checkpoint stored.')
 
