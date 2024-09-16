@@ -4,7 +4,8 @@ import numpy as np
 import robot_execution as robex
 import random
 import math 
-
+import pyrealsense2 as rs
+import cv2
 
 C = ry.Config()
 C.addFile(ry.raiPath('../rai-robotModels/scenarios/pandaSingle.g'))
@@ -20,9 +21,9 @@ for i in range(3):
 
     color = [0, 0, 0]
     color[i] = 1
-    position_val1 = 0.1 * (i - 5)
+    position_val1 = -.1 * (i - 5) - .1
     C.addFrame(box_name) \
-        .setPosition([position_val1, 0.05, 0.705]) \
+        .setPosition([-.3, position_val1, 0.705]) \
         .setShape(ry.ST.ssBox, size=[0.04, 0.04, 0.12, 0.001]) \
         .setColor(color) \
         .setContact(1) \
@@ -40,8 +41,8 @@ C.view()
 
 
 def sample_arena():
-    a = 0.4 
-    b = 0.4  
+    a = 0.4
+    b = 0.35  
     z_coord = 0.745  # Fixed Z-coordinate
 
     r = math.sqrt(random.uniform(0, 1))
@@ -68,6 +69,33 @@ def draw_arena():
         C.addFrame(f"point{i}").setPosition(midpoint).setShape(ry.ST.marker, size=[.07]).setColor([1, 0, 0])
 
 draw_arena()
+
+def capture_photo(filename):
+    pipeline = rs.pipeline()
+    config = rs.config()
+
+    config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+
+    pipeline.start(config)
+
+    try:
+        for _ in range(100):  # Give some frames to adjust exposure etc.
+            frames = pipeline.wait_for_frames()
+
+        color_frame = frames.get_color_frame()
+
+        if not color_frame:
+            raise RuntimeError("No camera frame received")
+
+        color_image = np.asanyarray(color_frame.get_data())
+
+        cv2.imwrite(filename, color_image)
+        print(f"Image saved as {filename}")
+
+    finally:
+        pipeline.stop()
+
+
 ### TODO TODO dont look at this now
 def return_house_path(housePosition):
     bridge_paths = []
@@ -316,21 +344,25 @@ def move_blocks(housePosition):
         robot.execute_path_blocking(C, bridge_paths[i*2+1])
         C.attach(table, box)
         robot.release(C)
+        
 
+    robot.goHome(C)
 
     return bridge_paths
 
 
-attempt_count = 5
+attempt_count = 20
 for l in range(attempt_count):
     housePosition = [midpoint[0] + (np.random.random()*.2 -.1), midpoint[1] + (np.random.random()*.2 -.1)]
     move_blocks(sample_arena())
     path = return_house_path(housePosition)
+    
 
     if path:
         with open(f'paths/path{l}.txt', 'w') as file:
             for array in path:
                 file.write(' '.join(map(str, array)) + '\n')
+        np.save(f"paths/path{l}.npy", path)
 
         box_pos = []
         for i in range(3):
@@ -339,5 +371,7 @@ for l in range(attempt_count):
         with open(f'block_pos/block_pos{l}.txt', 'w') as file:
             for pos in box_pos:
                 file.write(' '.join(map(str, pos)) + '\n')
+
+        capture_photo(f"scene_images/scene{l}.png")
             
 
