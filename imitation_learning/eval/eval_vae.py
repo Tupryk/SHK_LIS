@@ -13,7 +13,7 @@ from utils.utils import calculate_psnr
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Hyperparameters
-latent_dim = 32
+latent_dim = 64
 lr = 1e-3
 batch_size = 64
 epochs = 2500
@@ -26,21 +26,10 @@ transform = transforms.Compose([
 ])
 
 # Create the dataset and dataloader
-dataset = CustomImageDataset(root_dir='data/scene_images', transform=transform)
-
-# Random seed for reproducibility 
-#torch.manual_seed(42)
-
-# Define the size of train and test sets
-train_size = int(0.8 * len(dataset))  # 80% for training
-test_size = len(dataset) - train_size  # 20% for testing
-
-# Split the dataset into train and test sets
-train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
+test_dataset = CustomImageDataset(root_dir='data/scene_images/train/', mode="train")
 
 # Create DataLoader for both train and test datasets
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False , num_workers=2)
 
 # Model, optimizer
 model = ConvVAE(latent_dim=latent_dim, n_layers = n_layers).to(device)
@@ -48,7 +37,7 @@ optimizer = optim.Adam(model.parameters(), lr=lr)
 
 
 # Load the checkpoint
-checkpoint = torch.load('cpts/vae_2dot5K_kdl1.cpt')
+checkpoint = torch.load('cpts/vae_1K.cpt')
 
 print(f"Pretrained vae model loaded.")
 
