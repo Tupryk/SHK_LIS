@@ -5,24 +5,28 @@ C = ry.Config()
 ry.params_print()
 C.addFile('./g_files/omnibase/omnibase.g')
 
+wall_width = .1
+safety_distance = .4
+floor_cutoff = .2
+
 C.addFrame("wall1") \
-    .setShape(ry.ST.box, [5., .1, 1.]) \
-    .setPosition([.0, 2.5, .5]) \
+    .setShape(ry.ST.box, [5., wall_width, 1.]) \
+    .setPosition([.0, 2.5 +wall_width*.5, .5]) \
     .setColor([.5, .5, .7])
 
 C.addFrame("wall2") \
-    .setShape(ry.ST.box, [5., .1, 1.]) \
-    .setPosition([.0, -2.5, .5]) \
+    .setShape(ry.ST.box, [5., wall_width, 1.]) \
+    .setPosition([.0, -2.5 -wall_width*.5, .5]) \
     .setColor([.5, .5, .7])
 
 C.addFrame("wall3") \
-    .setShape(ry.ST.box, [.1, 5., 1.]) \
-    .setPosition([2.5, .0, .5]) \
+    .setShape(ry.ST.box, [wall_width, 5., 1.]) \
+    .setPosition([2.5 +wall_width*.5, .0, .5]) \
     .setColor([.5, .5, .7])
 
 C.addFrame("wall4") \
-    .setShape(ry.ST.box, [.1, 5., 1.]) \
-    .setPosition([-2.5, .0, .5]) \
+    .setShape(ry.ST.box, [wall_width, 5., 1.]) \
+    .setPosition([-2.5 -wall_width*.5, .0, .5]) \
     .setColor([.5, .5, .7])
 
 bot = ry.BotOp(C, False)
@@ -53,13 +57,13 @@ while True:
     while bot.getTimeToEnd() > 0:
         rgb, depth, points = bot.getImageDepthPcl("cameraBase")
         points = points.reshape(-1, 3)
-        points = points[points[:, 1] < 0.2]
+        points = points[points[:, 1] < floor_cutoff]
         points = points[points[:, 2] != 0.]
         pclFrame.setPointCloud(points)
         pclFrame.setColor([1., 0., 0.])
         C.view()
         bot.sync(C)
 
-        if points[:, 2].min() < .7:
+        if points[:, 2].min() < safety_distance:
             print("OH FUCK, OH GOD, I'M GOING TO CRASH, AAAAAAAAAAAAAAAHHHHHHH!!!!!!")
             bot.stop(C)
