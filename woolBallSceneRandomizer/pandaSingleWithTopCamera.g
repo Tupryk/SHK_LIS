@@ -3,7 +3,7 @@ world: {}
 ### table
 
 table(world): {
- shape: ssBox, Q: "t(0 0. .6)", size: [2.5, 2.5, .1, .02], color: [.3, .3, .3],
+ shape: ssBox, Q: "t(0 0. .6)", size: [3.5, 3.5, .1, .02], color: [.9294, .9294, .9194],
  contact: 1, logical: { },
  friction: .1
 }
@@ -24,15 +24,10 @@ Edit l_panda_joint7: { q: -.5 }
 
 ### camera
 
-cameraTop(world): {
- Q: "t(-0.01 -.2 1.8) d(150 1 0 0)",
- shape: marker, size: [.1],
- focalLength: 0.895, width: 640, height: 360, zRange: [.5, 100]
-}
 topCamera(world): {
  Q: "t(-0.01 .65 1.8) d(160 1 0 0) d(180 0 0 1)",
  shape: marker, size: [.1],
- focalLength: 0.895, width: 640, height: 360, zRange: [.5, 100]
+ focalLength: 0.895, width: 640, height: 480, zRange: [.5, 100]
 }
 
 cameraWrist(l_panda_joint7): {
