@@ -17,7 +17,7 @@ loader = torch.utils.data.DataLoader(dataset, batch_size=50, shuffle=True)
 dataset = TensorDataset(torch.Tensor(np_data))
 
 # Split the dataset into training and validation sets
-train_size = int(0.9 * len(dataset))
+train_size = int(0.8 * len(dataset))
 val_size = len(dataset) - train_size
 train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
