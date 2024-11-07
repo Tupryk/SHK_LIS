@@ -2,6 +2,7 @@ import robotic as ry
 import numpy as np
 import robot_execution as robex
 
+#TODO fix initial fast movement
 
 # for convenience, a few definitions:
 gripper = "l_gripper"
@@ -25,32 +26,30 @@ def read_floats_from_file(file_path):
 
 
 
-
-
 if __name__ == "__main__":
     C = ry.Config()
     C.addFile(ry.raiPath('../rai-robotModels/scenarios/pandaSingle.g'))
-    path=   np.load(f"paths/path1.npy")
+    path= np.load(f"paths/path0.npy")
 
     print(path[1])
-    for config in range(2):
-        file_path = f'block_pos/block_pos{config}.txt' 
-        float_entries = read_floats_from_file(file_path)
-        print(float_entries)
+
+    file_path = 'block_pos/block_pos0.txt' 
+    float_entries = read_floats_from_file(file_path)
+    print(float_entries)
 
 
-        for i in range(3):
-            box_name = 'box{}'.format(i + 1)
+    for i in range(3):
+        box_name = 'box{}'.format(i + 1)
 
-            color = [0, 0, 0]
-            color[i] = 1
-            position_val1 = -.1 * (i - 5) - .1
-            C.addFrame(box_name) \
-                .setPosition([float_entries[i][0], float_entries[i][1], 0.705]) \
-                .setShape(ry.ST.ssBox, size=[0.04, 0.04, 0.12, 0.001]) \
-                .setColor(color) \
-                .setContact(1) \
-                .setMass(.1)
+        color = [0, 0, 0]
+        color[i] = 1
+        position_val1 = -.1 * (i - 5) - .1
+        C.addFrame(box_name) \
+            .setPosition([float_entries[i][0], float_entries[i][1], 0.705]) \
+            .setShape(ry.ST.ssBox, size=[0.04, 0.04, 0.12, 0.001]) \
+            .setColor(color) \
+            .setContact(1) \
+            .setMass(.1)
 
         C.view(True)
 

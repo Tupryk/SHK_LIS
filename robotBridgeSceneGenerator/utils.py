@@ -1,6 +1,55 @@
 import copy
 import numpy as np
 import open3d as o3d
+import math
+import random
+import robotic as ry
+
+def sample_arena(a, b, offset=[0,0]):
+    """
+    sample from the elliptical arena in the z=.745 plane
+
+    Args:
+        C: The current robot configuration, representing the kinematic structure as a tree of frames.
+        a: Semi-major axis (radius in the x direction)
+        b: Semi-minor axis (radius in the y direction)
+        offset: Center point of the ellipse
+    """
+    z_coord = 0.745  # Fixed Z-coordinate
+
+    r = math.sqrt(random.uniform(0, 1))
+
+    angle = random.uniform(0, 2 * math.pi)
+
+    x = offset[0] + r * a * math.cos(angle)
+    y = offset[1] + r * b * math.sin(angle)  
+
+    return [x, y, z_coord]
+
+
+def draw_arena(C, a, b, offset=[0,0], num_points=100):
+    """
+    Draw equiangular points on the (elliptical) arena in the z=.745 plane into ry.Config C.
+
+    Args:
+        C: An optional string for providing additional information or description related to this
+                            manipulation instance. Default is an empty string.
+        a: Semi-major axis (radius in the x direction)
+        b: Semi-minor axis (radius in the y direction)
+        offset: Center point of the ellipse
+        num_points: Number of points to place along the ellipse.
+    """
+    z_coord = .745  # Fixed Z-coordinate
+    angle_step = 2 * math.pi / num_points  # Fixed angle interval
+
+    for i in range(num_points):
+        angle = i * angle_step  # Equiangular spacing
+        
+        x = offset[0] + a * math.cos(angle)
+        y = offset[1] + b * math.sin(angle)
+        midpoint = [x, y, z_coord]
+        
+        C.addFrame(f"point{i}").setPosition(midpoint).setShape(ry.ST.marker, size=[.07]).setColor([1, 0, 0])
 
 
 def estimate_cube_pose(point_cloud: np.ndarray, dimensions: np.ndarray, add_noise: bool = True, verbose: int = 0, origin=np.array([-.55, -.1, .67])) -> np.ndarray:

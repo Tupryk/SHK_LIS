@@ -2,102 +2,14 @@ import robotic as ry
 import manipulation as manip
 import numpy as np
 import robot_execution as robex
-import random
-import math 
-import pyrealsense2 as rs
-import cv2
+from utils import draw_arena, sample_arena
 
-C = ry.Config()
-C.addFile(ry.raiPath('../rai-robotModels/scenarios/pandaSingle.g'))
+# elliptical arena parameters
+A = .4
+B = .35
+OFFSET = [0, .2]
 
-midpoint = [-0.105, 0.2, 0.745]
-C.addFrame("obstacle") \
-    .setPosition(midpoint) \
-    .setShape(ry.ST.marker, size=[0.07]) \
-    .setColor([0, 0, 1]) \
-
-for i in range(3):
-    box_name = 'box{}'.format(i + 1)
-
-    color = [0, 0, 0]
-    color[i] = 1
-    position_val1 = -.1 * (i - 5) - .1
-    C.addFrame(box_name) \
-        .setPosition([-.3, position_val1, 0.705]) \
-        .setShape(ry.ST.ssBox, size=[0.04, 0.04, 0.12, 0.001]) \
-        .setColor(color) \
-        .setContact(1) \
-        .setMass(.1)
-
-#C.delFrame("panda_collCameraWrist")
-
-# for convenience, a few definitions:
-gripper = "l_gripper"
-palm = "l_palm"
-box = "box1"
-table = "table"
-
-C.view()
-
-
-def sample_arena():
-    a = 0.4
-    b = 0.35  
-    z_coord = 0.745  # Fixed Z-coordinate
-
-    r = math.sqrt(random.uniform(0, 1))
-
-    angle = random.uniform(0, 2 * math.pi)
-
-    x = r * a * math.cos(angle)
-    y = 0.2 + r * b * math.sin(angle)  # Centered at (0, 0.2)
-
-    return [x, y, z_coord]
-
-def draw_arena():
-    a = 0.4  # Semi-major axis (radius in the x direction)
-    b = 0.4  # Semi-minor axis (radius in the y direction)
-    z_coord = 0.745  # Fixed Z-coordinate
-
-    for i in range(100):
-        angle = random.uniform(0, 2 * math.pi)
-        
-        x = a * math.cos(angle)
-        y = .2+ b * math.sin(angle)
-        midpoint = [x, y, z_coord]
-        
-        C.addFrame(f"point{i}").setPosition(midpoint).setShape(ry.ST.marker, size=[.07]).setColor([1, 0, 0])
-
-draw_arena()
-
-def capture_photo(filename):
-    pipeline = rs.pipeline()
-    config = rs.config()
-
-    config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-
-    pipeline.start(config)
-
-    try:
-        for _ in range(100):  # Give some frames to adjust exposure etc.
-            frames = pipeline.wait_for_frames()
-
-        color_frame = frames.get_color_frame()
-
-        if not color_frame:
-            raise RuntimeError("No camera frame received")
-
-        color_image = np.asanyarray(color_frame.get_data())
-
-        cv2.imwrite(filename, color_image)
-        print(f"Image saved as {filename}")
-
-    finally:
-        pipeline.stop()
-
-
-### TODO TODO dont look at this now
-def return_house_path(housePosition):
+def return_brige_build_path(C, bridgePosition, gripper="l_gripper", palm="l_palm", table="table", visualize=False):
     bridge_paths = []
 
     qStart = C.getJointState()
@@ -113,7 +25,7 @@ def return_house_path(housePosition):
             M.setup_pick_and_place_waypoints(gripper, box, homing_scale=1e-1)
             M.grasp_box(1., gripper, box, palm, graspDirection)
             M.place_box(2., box, table, palm, placeDirection)
-            M.target_relative_xy_position(2., box, table, housePosition)
+            M.target_relative_xy_position(2., box, table, bridgePosition)
             M.solve()
             if not M.feasible:
                 continue
@@ -208,7 +120,7 @@ def return_house_path(housePosition):
 
         M.komo.addObjective([2.], ry.FS.vectorZ, [box], ry.OT.eq, [1e1], box3_dir)
         M.komo.addObjective([2.], ry.FS.vectorX, [box], ry.OT.eq, [1e1], [0, 0, -1])
-        end_pos = housePosition + box3_dir *.05
+        end_pos = bridgePosition + box3_dir *.05
         end_pos[2] = .69 + .11
         M.komo.addObjective([2.], ry.FS.position, [box], ry.OT.eq, [1e1], end_pos)
         M.solve()
@@ -249,24 +161,47 @@ def return_house_path(housePosition):
     C.setJointState(qStart)
 
 
-    # C.view()
-    # robot = robex.Robot(C, on_real=False)
-    # robot.goHome(C)
-    # for i in range(3):
-    #     box = f"box{i+1}"
-    #     robot.execute_path_blocking(C, bridge_paths[i*2])
-    #     robot.grasp(C)
-    #     C.attach(gripper, box)
+    if(visualize):
+        # make copy of C
+        C2 = ry.Config()
+        C2.addFile(ry.raiPath('../rai-robotModels/scenarios/pandaSingle.g'))
         
-    #     robot.execute_path_blocking(C, bridge_paths[i*2+1])
-    #     C.attach(table, box)
-    #     robot.release(C)
+        for i in range(3):
+            box_name = 'box{}'.format(i + 1)
+
+            color = [0, 0, 0]
+            color[i] = 1
+            position_val1 = 0.1 * (i - 5)
+            C2.addFrame(box_name) \
+                .setPosition([position_val1, 0.05, 0.705]) \
+                .setShape(ry.ST.ssBox, size=[0.04, 0.04, 0.12, 0.001]) \
+                .setColor(color) \
+                .setContact(1) \
+                .setMass(.1)
+            
+        C2.setFrameState(frameStart)
+        C2.setJointState(qStart)
+
+
+
+        C2.view()    
+        robot = robex.Robot(C2, on_real=False)
+        robot.goHome(C2)
+        for i in range(3):
+            box = f"box{i+1}"
+            robot.execute_path_blocking(C2, bridge_paths[i*2])
+            robot.grasp(C2)
+            C2.attach(gripper, box)
+            
+            robot.execute_path_blocking(C2, bridge_paths[i*2+1])
+            C2.attach(table, box)
+            robot.release(C2)
 
 
     return bridge_paths
 
 
-def move_blocks(housePosition):
+def move_blocks(C, gripper="l_gripper", palm="l_palm", table="table", visualize=True):
     bridge_paths = []
 
     qStart = C.getJointState()
@@ -282,7 +217,7 @@ def move_blocks(housePosition):
                 M.setup_pick_and_place_waypoints(gripper, box, homing_scale=1e-1)
                 M.grasp_box(1., gripper, box, palm, graspDirection)
                 M.place_box(2., box, table, palm, placeDirection)
-                M.target_relative_xy_position(2., box, table, sample_arena())
+                M.target_relative_xy_position(2., box, table, sample_arena(A, B, OFFSET))
                 
                 M.komo.addObjective([2.], ry.FS.angularVel, [gripper], ry.OT.sos, [1e1])
                 
@@ -331,47 +266,79 @@ def move_blocks(housePosition):
     C.setFrameState(frameStart)
     C.setJointState(qStart)
 
+    if(visualize):
+        C.view()
 
-    C.view()
-    robot = robex.Robot(C, on_real=True)
-    robot.goHome(C)
-    for i in range(3):
-        box = f"box{i+1}"
-        robot.execute_path_blocking(C, bridge_paths[i*2])
-        robot.grasp(C)
-        C.attach(gripper, box)
-        
-        robot.execute_path_blocking(C, bridge_paths[i*2+1])
-        C.attach(table, box)
-        robot.release(C)
-        
+        draw_arena(C, A, B, OFFSET)
 
-    robot.goHome(C)
+        robot = robex.Robot(C, on_real=False)
+        robot.goHome(C)
+        for i in range(3):
+            box = f"box{i+1}"
+            robot.execute_path_blocking(C, bridge_paths[i*2])
+            robot.grasp(C)
+            C.attach(gripper, box)
+            
+            robot.execute_path_blocking(C, bridge_paths[i*2+1])
+            C.attach(table, box)
+            robot.release(C)
+
 
     return bridge_paths
 
+def main():
+    C = ry.Config()
+    C.addFile(ry.raiPath('../rai-robotModels/scenarios/pandaSingle.g'))
 
-attempt_count = 20
-for l in range(attempt_count):
-    housePosition = [midpoint[0] + (np.random.random()*.2 -.1), midpoint[1] + (np.random.random()*.2 -.1)]
-    move_blocks(sample_arena())
-    path = return_house_path(housePosition)
-    
+    midpoint = [-0.105, 0.2, 0.745]
 
-    if path:
-        with open(f'paths/path{l}.txt', 'w') as file:
-            for array in path:
-                file.write(' '.join(map(str, array)) + '\n')
-        np.save(f"paths/path{l}.npy", path)
+    for i in range(3):
+        box_name = 'box{}'.format(i + 1)
 
-        box_pos = []
-        for i in range(3):
-            box_pos.append(C.getFrame(f"box{i+1}").getPosition())
+        color = [0, 0, 0]
+        color[i] = 1
+        position_val1 = 0.1 * (i - 5)
+        C.addFrame(box_name) \
+            .setPosition([position_val1, 0.05, 0.705]) \
+            .setShape(ry.ST.ssBox, size=[0.04, 0.04, 0.12, 0.001]) \
+            .setColor(color) \
+            .setContact(1) \
+            .setMass(.1)
 
-        with open(f'block_pos/block_pos{l}.txt', 'w') as file:
-            for pos in box_pos:
-                file.write(' '.join(map(str, pos)) + '\n')
 
-        capture_photo(f"scene_images/scene{l}.png")
+    # for convenience, a few definitions:
+    gripper = "l_gripper"
+    palm = "l_palm"
+    table = "table"
+
+    attempt_count = 5
+
+    count=-1
+    for _ in range(attempt_count):
+        # pick bridge position
+        bridgePosition = [midpoint[0] + (np.random.random()*.2 -.1), midpoint[1] + (np.random.random()*.2 -.1)]
+        # move blocks randomly inside elliptical arena
+        moved_success = move_blocks(C, gripper, palm, table, True)
+        # return path of bridge building
+        path = None
+        if moved_success:
+            path = return_brige_build_path(C, bridgePosition, gripper, palm, table, True)
+
+        if path:
+            count+=1
+            np.save(f"paths/path{count}", path)
+            with open(f'paths/path{count}.txt', 'w') as file:
+                for array in path:
+                    file.write(' '.join(map(str, array)) + '\n')
+
+            box_pos = []
+            for i in range(3):
+                box_pos.append(C.getFrame(f"box{i+1}").getPosition())
+
+            with open(f'block_pos/block_pos{count}.txt', 'w') as file:
+                for pos in box_pos:
+                    file.write(' '.join(map(str, pos)) + '\n')
+        
             
-
+if __name__ == "__main__":
+    main()
