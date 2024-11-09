@@ -214,7 +214,7 @@ def return_brige_build_path(C, bridgePosition, gripper="l_gripper", palm="l_palm
         if abs(euler_angles[0])>.1 or abs(euler_angles[1])>.1:
             return False
         
-    if not math.isclose(C2.getFrame(f"box3").getRotationMatrix() - C2.getFrame(f"box1").getRotationMatrix(), 0.06, abs_tol=0.001):
+    if not math.isclose(C2.getFrame(f"box3").getPosition()[2] - C2.getFrame(f"box1").getPosition()[2], 0.08, abs_tol=0.001):
         return False
 
     return bridge_paths, img
