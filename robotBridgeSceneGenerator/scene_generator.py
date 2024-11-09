@@ -1,7 +1,11 @@
+import os
 import robotic as ry
 import manipulation as manip
 import numpy as np
 import robot_execution as robex
+from matplotlib.image import imsave
+from scipy.spatial.transform import Rotation as R
+import math
 from utils import draw_arena, sample_arena
 
 # elliptical arena parameters
@@ -52,7 +56,7 @@ def return_brige_build_path(C, bridgePosition, gripper="l_gripper", palm="l_palm
             break
 
     if not possible:
-        return False
+        return False, None
     
     bridge_paths.append(path1)
     bridge_paths.append(path2)
@@ -99,7 +103,7 @@ def return_brige_build_path(C, bridgePosition, gripper="l_gripper", palm="l_palm
             break
 
     if not possible:
-        return False
+        return False, None
     
     bridge_paths.append(path1)
     bridge_paths.append(path2)
@@ -152,7 +156,7 @@ def return_brige_build_path(C, bridgePosition, gripper="l_gripper", palm="l_palm
         break
 
     if not possible:
-        return False
+        return False, None
     
     bridge_paths.append(path1)
     bridge_paths.append(path2)
@@ -160,33 +164,36 @@ def return_brige_build_path(C, bridgePosition, gripper="l_gripper", palm="l_palm
     C.setFrameState(frameStart)
     C.setJointState(qStart)
 
+    # make copy of C
+    C2 = ry.Config()
+    C2.addFile("scenarios/pandaSingleWithTopCamera.g")
+    home = C2.getJointState()
 
+    for i in range(3):
+        box_name = 'box{}'.format(i + 1)
+
+        color = [0, 0, 0]
+        color[i] = 1
+        position_val1 = 0.1 * (i - 5)
+        C2.addFrame(box_name) \
+            .setPosition([position_val1, 0.05, 0.705]) \
+            .setShape(ry.ST.ssBox, size=[0.04, 0.04, 0.12, 0.001]) \
+            .setColor(color) \
+            .setContact(1) \
+            .setMass(.1)
+
+    C2.setFrameState(frameStart)
+    C2.setJointState(home)
+    C2.view()
+    robot = robex.Robot(C2, on_real=False)
+
+    img, _ = robot.bot.getImageAndDepth("topCamera")
     if(visualize):
-        # make copy of C
-        C2 = ry.Config()
-        C2.addFile(ry.raiPath('../rai-robotModels/scenarios/pandaSingle.g'))
-        
-        for i in range(3):
-            box_name = 'box{}'.format(i + 1)
 
-            color = [0, 0, 0]
-            color[i] = 1
-            position_val1 = 0.1 * (i - 5)
-            C2.addFrame(box_name) \
-                .setPosition([position_val1, 0.05, 0.705]) \
-                .setShape(ry.ST.ssBox, size=[0.04, 0.04, 0.12, 0.001]) \
-                .setColor(color) \
-                .setContact(1) \
-                .setMass(.1)
-            
-        C2.setFrameState(frameStart)
         C2.setJointState(qStart)
+        C2.view()       
 
-
-
-        C2.view()    
         robot = robex.Robot(C2, on_real=False)
-        robot.goHome(C2)
         for i in range(3):
             box = f"box{i+1}"
             robot.execute_path_blocking(C2, bridge_paths[i*2])
@@ -197,8 +204,20 @@ def return_brige_build_path(C, bridgePosition, gripper="l_gripper", palm="l_palm
             C2.attach(table, box)
             robot.release(C2)
 
+    for i in range(1,3):
+        rotation_matrix = C2.getFrame(f"box{i}").getRotationMatrix()
+        rotation = R.from_matrix(rotation_matrix)
 
-    return bridge_paths
+        euler_angles = rotation.as_euler('xyz', degrees=True)
+
+        # kind of ugly hack: if pitch or roll > .5 degrees, i.e. block is not on table, return false
+        if abs(euler_angles[0])>.1 or abs(euler_angles[1])>.1:
+            return False
+        
+    if not math.isclose(C2.getFrame(f"box3").getRotationMatrix() - C2.getFrame(f"box1").getRotationMatrix(), 0.06, abs_tol=0.001):
+        return False
+
+    return bridge_paths, img
 
 
 def move_blocks(C, gripper="l_gripper", palm="l_palm", table="table", visualize=True):
@@ -262,9 +281,9 @@ def move_blocks(C, gripper="l_gripper", palm="l_palm", table="table", visualize=
         C.setFrameState(X)
         C.setJointState(path2[-1])
 
-    
     C.setFrameState(frameStart)
     C.setJointState(qStart)
+
 
     if(visualize):
         C.view()
@@ -283,12 +302,22 @@ def move_blocks(C, gripper="l_gripper", palm="l_palm", table="table", visualize=
             C.attach(table, box)
             robot.release(C)
 
+    for i in range(1,4):
+        rotation_matrix = C.getFrame(f"box{i}").getRotationMatrix()
+        rotation = R.from_matrix(rotation_matrix)
 
-    return bridge_paths
+        euler_angles = rotation.as_euler('xyz', degrees=True)
+
+        # kind of ugly hack: if pitch or roll > .5 degrees, i.e. block is not on table, return false
+        if abs(euler_angles[0])>.1 or abs(euler_angles[1])>.1:
+            return False
+
+
+    return True
 
 def main():
     C = ry.Config()
-    C.addFile(ry.raiPath('../rai-robotModels/scenarios/pandaSingle.g'))
+    C.addFile("scenarios/pandaSingleWithTopCamera.g")
 
     midpoint = [-0.105, 0.2, 0.745]
 
@@ -322,11 +351,20 @@ def main():
         # return path of bridge building
         path = None
         if moved_success:
-            path = return_brige_build_path(C, bridgePosition, gripper, palm, table, True)
+            path, img = return_brige_build_path(C, bridgePosition, gripper, palm, table, True)
 
         if path:
-            count+=1
+            # Ensure the directories exist
+            os.makedirs("paths", exist_ok=True)
+            os.makedirs("block_pos", exist_ok=True)
+            os.makedirs("init_scene_img", exist_ok=True)
+
+            count += 1
+
+            imsave(f"init_scene_img/image{count}.png", img)
+
             np.save(f"paths/path{count}", path)
+
             with open(f'paths/path{count}.txt', 'w') as file:
                 for array in path:
                     file.write(' '.join(map(str, array)) + '\n')
@@ -338,6 +376,7 @@ def main():
             with open(f'block_pos/block_pos{count}.txt', 'w') as file:
                 for pos in box_pos:
                     file.write(' '.join(map(str, pos)) + '\n')
+
         
             
 if __name__ == "__main__":
