@@ -210,7 +210,7 @@ def return_brige_build_path(C, bridgePosition, gripper="l_gripper", palm="l_palm
 
         euler_angles = rotation.as_euler('xyz', degrees=True)
 
-        # kind of ugly hack: if pitch or roll > .5 degrees, i.e. block is not on table, return false
+        # kind of ugly hack: if pitch or roll > .5 degrees, i.e. block is not standing on table, return false
         if abs(euler_angles[0])>.1 or abs(euler_angles[1])>.1:
             return False, None
         
@@ -315,42 +315,51 @@ def move_blocks(C, gripper="l_gripper", palm="l_palm", table="table", visualize=
 
     return True
 
+def random_config(C, a, b, offset):
+    for i in range(1,4):
+
+        x_y_pos = sample_arena(a, b, offset)[:2]
+        x_y_pos.append(.705)
+        C.getFrame(f"box{i}").setPosition(x_y_pos)
+
+    return True
+
+
+
 def main():
-    C = ry.Config()
-    C.addFile("scenarios/pandaSingleWithTopCamera.g")
-
-    midpoint = [-0.105, 0.2, 0.745]
-
-    for i in range(3):
-        box_name = 'box{}'.format(i + 1)
-
-        color = [0, 0, 0]
-        color[i] = 1
-        position_val1 = 0.1 * (i - 5)
-        C.addFrame(box_name) \
-            .setPosition([position_val1, 0.05, 0.705]) \
-            .setShape(ry.ST.ssBox, size=[0.04, 0.04, 0.12, 0.001]) \
-            .setColor(color) \
-            .setContact(1) \
-            .setMass(.1)
-
-
     # for convenience, a few definitions:
     gripper = "l_gripper"
     palm = "l_palm"
     table = "table"
 
 
-
-
     # number of restart -> number of restart configurations with starting same block pos, attempt count -> attempts during that restart configuration
-    number_of_restart = 5
+    number_of_restart = 1000
     for i in range(number_of_restart):
+        C = ry.Config()
+        C.addFile("scenarios/pandaSingleWithTopCamera.g")
+
+        midpoint = [-0.105, 0.2, 0.745]
+
+        for i in range(3):
+            box_name = 'box{}'.format(i + 1)
+
+            color = [0, 0, 0]
+            color[i] = 1
+            position_val1 = 0.1 * (i - 5)
+            C.addFrame(box_name) \
+                .setPosition([position_val1, 0.05, 0.705]) \
+                .setShape(ry.ST.ssBox, size=[0.04, 0.04, 0.12, 0.001]) \
+                .setColor(color) \
+                .setContact(1) \
+                .setMass(.1)
+
+
 
         # extract number of files in block pos folder to account for starting index
         file_count = len([f for f in os.listdir("block_pos") if os.path.isfile(os.path.join("block_pos", f))])
 
-        attempt_count = 10
+        attempt_count = 1
 
         count=-1
         for _ in range(attempt_count):
@@ -358,10 +367,11 @@ def main():
             bridgePosition = [midpoint[0] + (np.random.random()*.2 -.1), midpoint[1] + (np.random.random()*.2 -.1)]
             # move blocks randomly inside elliptical arena
             moved_success = move_blocks(C, gripper, palm, table, True)
+            #moved_success = random_config(C, A, B, OFFSET)
             # return path of bridge building
             path = None
             if moved_success:
-                path, img = return_brige_build_path(C, bridgePosition, gripper, palm, table, False)
+                path, img = return_brige_build_path(C, bridgePosition, gripper, palm, table, True)
 
             if path:
                 # Ensure the directories exist
@@ -374,7 +384,7 @@ def main():
 
                 imsave(f"init_scene_img/image{index}.png", img)
 
-                np.save(f"paths/path{index}", path)
+                np.save(f"npy_paths/path{index}", path)
 
                 with open(f'paths/path{index}.txt', 'w') as file:
                     for array in path:
@@ -387,6 +397,7 @@ def main():
                 with open(f'block_pos/block_pos{index}.txt', 'w') as file:
                     for pos in box_pos:
                         file.write(' '.join(map(str, pos)) + '\n')
+        del C
 
         
             
