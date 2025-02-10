@@ -2,9 +2,9 @@ import os
 import trimesh
 import numpy as np
 from tqdm import tqdm
+from PIL import Image
 
-
-def obj2ply(obj_file: str, ply_out: str, scale: float=1., texture_path: str="none") -> bool:
+def obj2ply(obj_file: str, ply_out: str, scale: float=1.0, texture_path: str="none") -> bool:
 
     tri_obj = trimesh.load(obj_file)
     if hasattr(tri_obj.visual, 'to_color'):
@@ -13,15 +13,50 @@ def obj2ply(obj_file: str, ply_out: str, scale: float=1., texture_path: str="non
             vertex_colors_visual = tri_obj.visual.to_color()
             tri_obj.visual = vertex_colors_visual
         elif texture_path:
-            texture = trimesh.visual.TextureVisuals(image=texture_path)
-            tri_obj.visual = texture
-        
-        scaling_mat = scale * np.eye(4)
-        scaling_mat[-1, -1] = 1.0
-        tri_obj.apply_transform(scaling_mat)
+            try:
+                texture_image = Image.open(texture_path)
+                
+                texture = trimesh.visual.TextureVisuals(image=texture_image, uv=tri_obj.visual.uv)
+                tri_obj.visual = texture
+    
+                
+                texture = Image.open(texture_path)
+                texture = np.array(texture).astype(float) / 255.0
+                
+                if texture.shape[-1] == 3:
+                    alpha = np.ones((texture.shape[0], texture.shape[1], 1))
+                    texture = np.concatenate([texture, alpha], axis=-1)
+                
+                if not hasattr(tri_obj.visual, 'uv'):
+                    raise ValueError("Mesh does not have UV coordinates!")
+                
+                uv_coords = tri_obj.visual.uv
+                
+                uv_coords_copy = uv_coords.copy()
+                uv_coords_copy[:, 1] = 1 - uv_coords_copy[:, 1]
+                
+                pixel_coords = np.zeros_like(uv_coords_copy)
+                pixel_coords[:, 0] = uv_coords_copy[:, 0] * (texture.shape[1] - 1)
+                pixel_coords[:, 1] = uv_coords_copy[:, 1] * (texture.shape[0] - 1)
+                pixel_coords = pixel_coords.astype(int)
+                
+                vertex_colors = texture[pixel_coords[:, 1], pixel_coords[:, 0]]
+                
+                tri_obj.visual = trimesh.visual.ColorVisuals(
+                    mesh=tri_obj,
+                    vertex_colors=vertex_colors
+                )
+                
+                
+            except:
+                pass
+        if scale != 1.0:
+            print(scale)
+            scaling_mat = scale * np.eye(4)
+            scaling_mat[-1, -1] = 1.0
+            tri_obj.apply_transform(scaling_mat)
 
         tri_obj.export(ply_out)
-
         print(f"Converted {obj_file}")
         return True
 
