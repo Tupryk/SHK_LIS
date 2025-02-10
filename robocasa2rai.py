@@ -3,8 +3,9 @@ import trimesh
 import numpy as np
 from tqdm import tqdm
 from PIL import Image
+from mesh_helper import *
 
-def obj2ply(obj_file: str, ply_out: str, scale: float=1.0, texture_path: str="none") -> bool:
+def obj2ply(obj_file: str, ply_out: str, scale: float=1.0, texture_path: str="none", toH5: bool = True) -> bool:
 
     tri_obj = trimesh.load(obj_file)
     if hasattr(tri_obj.visual, 'to_color'):
@@ -58,12 +59,20 @@ def obj2ply(obj_file: str, ply_out: str, scale: float=1.0, texture_path: str="no
 
         tri_obj.export(ply_out)
         print(f"Converted {obj_file}")
+        
+        if toH5:
+            M = MeshHelper(ply_out)
+            M.transformInertia()
+            M.createPoints()
+            M.createDecomposition()
+            M.export_h5(True)
         return True
 
     else:
         print(f"Failed on {obj_file}")
         return False
 
+    
 
 if __name__ == "__main__":
 
