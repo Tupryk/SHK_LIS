@@ -62,16 +62,20 @@ def obj2ply(obj_file: str, ply_out: str, scale: float=1.0, texture_path: str="no
         
         if toH5:
             M = MeshHelper(ply_out)
-            M.transformInertia()
+            transform_mat = M.transformInertia()
             M.createPoints()
             M.createDecomposition()
             M.export_h5(True)
+            return True, M.mesh.center_mass.tolist(), np.diagonal(M.mesh.moment_inertia).tolist(), transform_mat
+        
         return True
 
     else:
         print(f"Failed on {obj_file}")
+        if toH5:
+            return False, False, False, False
         return False
-
+        
     
 
 if __name__ == "__main__":

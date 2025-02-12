@@ -2,6 +2,7 @@ import os
 import rowan
 import numpy as np
 import xml.etree.ElementTree as ET
+from utils import pose_matrix_to_7d
 
 from robocasa2rai import obj2ply
 
@@ -45,16 +46,16 @@ def load_model_dicts(root, out_path: str, root_path: str, materials: dict[str]) 
     return models
 
 
-def get_ply_path(name: str, obj_path: str, texture_path: str, root_path: str, out_path: str) -> str:
+def get_h5_props(name: str, obj_path: str, texture_path: str, root_path: str, out_path: str, scaling: float=1.0) -> str:
 
     obj_path = os.path.join(root_path, obj_path)
     texture_path = os.path.join(root_path, texture_path)
     ply_path = f"{name}.ply"
 
-    ply_success = obj2ply(obj_path, os.path.join(out_path, ply_path), texture_path=texture_path)
+    ply_success, mass, inertia, transform_mat = obj2ply(obj_path, os.path.join(out_path, ply_path), texture_path=texture_path, scale=scaling)
     if ply_success:
-        return ply_path
-    return None
+        return ply_path[:-3]+"h5", mass, inertia , transform_mat
+    return None, None, None, None
 
 
 def find_parent_body(child_name, root_tree):
@@ -134,7 +135,7 @@ def get_models_mats(root_tree, root_path: str):
 
 if __name__ == "__main__":
 
-    root_path = "fixtures/stoves/coil_burners_induc"
+    root_path = "fixtures"
 
     total = 0
     successful = 0
@@ -219,9 +220,17 @@ if __name__ == "__main__":
                                 mesh_name = geom.attrib.get("mesh", "")
                                 material_name = geom.attrib.get("material", "")
                                 
-                                ply_path = get_ply_path(f"{body_name}_geom", models[mesh_name], materials[material_name], root_path, out_path)
-                                
-                                line = f"""{body_name}_visual{i} ({body_name}) {{shape: mesh, mesh: "{ply_path}", contact: 0}}\n"""
+                                if "toaster" in root:
+                                    scaling = 0.5
+                                else:
+                                    scaling = 1.0
+                                    
+                                h5_path, mass, inertia, transform_mat = get_h5_props(f"{body_name}_geom_{i}", models[mesh_name], materials[material_name], root, out_path, scaling)
+                                if transform_mat is not None:
+                                    pose_vec = pose_matrix_to_7d(transform_mat)
+                                line = f"""{body_name}_cvx{i} ({body_name}) {{mesh_decomp: <{h5_path}>, mass: {mass}, inertia: {inertia} Q:{pose_vec.tolist()} }}\n"""
+                                lines.append(line)
+                                line = f"""{body_name}_visual{i} ({body_name}_cvx{i}) {{shape: mesh, mesh: <{h5_path}>, contact: 0}}\n"""
                                 lines.append(line)
 
                 g_path = os.path.join(out_path, "./joint_scene.g")

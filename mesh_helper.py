@@ -87,8 +87,10 @@ class MeshHelper():
 
         if verbose:
             print("COM after transformation:" , self.mesh.center_mass)
-            print("Intertia after transfromation:\n" , self.mesh.moment_inertia)
+            print("Inertia after transfromation:\n" , self.mesh.moment_inertia)
         self.inertiaIsDiagonal = True
+
+        return np.linalg.inv(matrix)
 
     def repair(self):
         try:
